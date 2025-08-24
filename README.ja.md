@@ -1,6 +1,14 @@
 # ジェミニ・アクション・ラボ
 
 <div align="center">
+  <img src="https://github.com/user-attachments/assets/1e294058-a1e6-4b44-979d-f4c8f09cb8ae" alt="Gemini Actions Lab" />
+</div>
+
+<div align="center">
+  <a href="README.md">English</a>
+</div>
+
+<div align="center">
   <img src="https://img.shields.io/badge/GitHub%20Actions-AI-blue?style=for-the-badge&logo=github-actions&logoColor=white" alt="GitHub Actions" />
   <img src="https://img.shields.io/badge/Gemini-AI-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white" alt="Gemini" />
 </div>
