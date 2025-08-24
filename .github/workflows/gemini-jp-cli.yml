@@ -1,6 +1,9 @@
 name: '💬 Gemini CLI (日本語版)'
 
 on:
+  issues:
+    types:
+      - 'opened'
   pull_request_review_comment:
     types:
       - 'created'
