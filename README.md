@@ -143,6 +143,54 @@ For additional features, configure these optional secrets:
 
 ---
 
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**❌ Workflow not triggering:**
+- Check if GitHub Actions are enabled in repository settings
+- Verify webhook delivery in repository settings
+- Ensure the trigger conditions are met (e.g., `@gemini-cli` in comment)
+
+**❌ Gemini API errors:**
+- Verify `GEMINI_API_KEY` secret is configured
+- Check API key permissions and quota
+- Ensure the API key is valid and not expired
+
+**❌ Permission errors:**
+- Confirm the user has write permissions
+- Check if the repository is private (affects trusted user detection)
+
+### Getting Help
+1. Check the [GitHub Issues](https://github.com/your-repo/issues) for similar problems
+2. Create a new issue with detailed error logs
+3. Include workflow run logs when reporting issues
+
+---
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- GitHub account with repository creation permissions
+- Gemini API key from Google AI Studio
+- Basic understanding of GitHub Actions
+
+### Quick Start
+1. **Fork this repository** to your GitHub account
+2. **Configure GitHub Secrets** in your repository settings:
+   - `GEMINI_API_KEY`: Your Gemini API key
+   - `GITHUB_TOKEN`: (automatically provided)
+3. **Copy workflow files** from `.github/workflows/` to your repository
+4. **Customize workflows** according to your needs
+5. **Test the setup** by creating an issue and commenting `@gemini-cli /help`
+
+### Advanced Configuration
+For additional features, configure these optional secrets:
+- `APP_ID` and `APP_PRIVATE_KEY`: For GitHub App integration
+- `GCP_WIF_PROVIDER` and related GCP variables: For Vertex AI usage
+
+---
+
 ## 📁 ディレクトリ構造
 
 ```
