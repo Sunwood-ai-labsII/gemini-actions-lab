@@ -54,6 +54,14 @@ jobs:
           app-id: '${{ vars.APP_ID }}'
           private-key: '${{ secrets.APP_PRIVATE_KEY }}'
 
+      - name: 'Debug Issue Information'
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Issue title: '${{ github.event.issue.title }}'"
+          echo "Issue body length: ${{ github.event.issue.body && length(github.event.issue.body) || 0 }}"
+          echo "Issue body preview: '${{ github.event.issue.body }}'"
+
       - name: 'Get Repository Labels'
         id: 'get_labels'
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
@@ -90,7 +98,7 @@ jobs:
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
           settings: |-
             {
-              "debug": ${{ fromJSON(env.DEBUG || env.ACTIONS_STEP_DEBUG || false) }},
+              "debug": true,
               "maxSessionTurns": 25,
               "coreTools": [
                 "run_shell_command(echo)"
@@ -101,21 +109,20 @@ jobs:
               }
             }
           prompt: |-
-            You are an issue triage assistant. Analyze the GitHub issue and output ONLY valid JSON.
+            You are an issue triage assistant. Analyze the GitHub issue and suggest appropriate labels.
 
-            Available labels: ${AVAILABLE_LABELS}
-            Issue title: ${ISSUE_TITLE}
-            Issue body: ${ISSUE_BODY}
+            Repository: ${REPOSITORY}
+            Issue Number: ${ISSUE_NUMBER}
+            Issue Title: "${ISSUE_TITLE}"
+            Issue Body: "${ISSUE_BODY}"
+            Available Labels: ${AVAILABLE_LABELS}
 
-            IMPORTANT: Output ONLY the JSON response, no explanations or additional text.
+            Please analyze this issue carefully and suggest appropriate labels from the available labels list.
 
-            Required JSON format:
-            {"labels_to_set": ["label1", "label2"], "explanation": "brief explanation"}
+            Output format (JSON only):
+            {"labels_to_set": ["label1", "label2"], "explanation": "reasoning for these labels"}
 
-            If no appropriate labels exist, output:
-            {"labels_to_set": [], "explanation": "No suitable labels found"}
-
-            JSON response:
+            If the issue content appears to be empty or placeholder text, still try to categorize it based on any available information.
 
       - name: 'Apply Labels to Issue'
         if: |-
