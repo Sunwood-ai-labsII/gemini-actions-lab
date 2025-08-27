@@ -26,38 +26,27 @@ This repository serves as a laboratory and showcase for integrating Google's Gem
 
 ## 🤖 Workflows
 
-このリポジトリは、GoogleのGemini AIをGitHub Actionsと統合するための実験室およびショーケースとして機能します。生成AIの力を利用して、さまざまなリポジトリ管理タスクを自動化する方法を示します。
-
-### 🎯 主な機能
-- **AIによる自動化**: Geminiを活用して、Issueのトリアージ、プルリクエストのレビューなどのタスクを処理します。
-- **CLIライクな対話**: Issueのコメントから直接AIアシスタントと対話します。
-- **拡張可能なワークフロー**: 独自のプロジェクトに合わせてワークフローを簡単に適応およびカスタマイズできます。
-
----
-
-## 🤖 ワークフロー
-
-このリポジトリには、以下のGitHub Actionsワークフローが含まれています：
+This repository includes the following GitHub Actions workflows:
 
 ### 📄 `gemini-cli-jp.yml`
-- **トリガー**: Issueのコメント
-- **機能**: ユーザーがIssueにコメント（例：`@gemini-cli-jp /do-something`）を作成することで、Gemini搭載のCLIアシスタントと対話できるようにします。アシスタントは、ユーザーのリクエストに基づいてリポジトリでアクションを実行できます。
+- **Trigger**: Issue comments
+- **Function**: Allows users to interact with a Gemini-powered CLI assistant by creating comments on issues (e.g., `@gemini-cli-jp /do-something`). The assistant can then perform actions on the repository based on the user's request.
 
 ###  triage `gemini-issue-automated-triage.yml`
-- **トリガー**: Issueの作成または編集
-- **機能**: 新規または更新されたIssueを自動的にトリアージします。Geminiによって決定されたIssueの内容に基づいて、ラベルの追加、担当者の割り当て、またはコメントの投稿ができます。
+- **Trigger**: Issue creation or edits
+- **Function**: Automatically triages new or updated issues. It can add labels, assignees, or post comments based on the issue's content as determined by Gemini.
 
 ### 🕒 `gemini-issue-scheduled-triage.yml`
-- **トリガー**: スケジュールされたcronジョブ
-- **機能**: 定期的にオープンなIssueをスキャンし、古いIssueの特定や優先順位の提案などのトリアージタスクを実行します。
+- **Trigger**: Scheduled cron job
+- **Function**: Periodically scans open issues and performs triage tasks, such as identifying stale issues or suggesting priorities.
 
 ### 🔍 `gemini-pr-review.yml`
-- **トリガー**: プルリクエストの作成または更新
-- **機能**: プルリクエストを自動的にレビューします。Geminiは、コードの品質に関するフィードバックの提供、改善の提案、または潜在的な問題の特定ができます。
+- **Trigger**: Pull request creation or updates
+- **Function**: Automatically reviews pull requests. Gemini can provide feedback on code quality, suggest improvements, or identify potential issues.
 
 ### 🔄 `sync-to-report-gh.yml`
-- **トリガー**: mainブランチへのプッシュ
-- **機能**: これは以前のテンプレートからのレガシーワークフローであり、このラボでは積極的に使用されていません。日次レポートを中央リポジトリに同期するように設計されていました。
+- **Trigger**: Push to the main branch
+- **Function**: This is a legacy workflow from a previous template and is not actively used in this lab. It was designed to sync daily reports to a central repository.
 
 ---
 
@@ -153,55 +142,7 @@ For additional features, configure these optional secrets:
 
 ---
 
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**❌ Workflow not triggering:**
-- Check if GitHub Actions are enabled in repository settings
-- Verify webhook delivery in repository settings
-- Ensure the trigger conditions are met (e.g., `@gemini-cli` in comment)
-
-**❌ Gemini API errors:**
-- Verify `GEMINI_API_KEY` secret is configured
-- Check API key permissions and quota
-- Ensure the API key is valid and not expired
-
-**❌ Permission errors:**
-- Confirm the user has write permissions
-- Check if the repository is private (affects trusted user detection)
-
-### Getting Help
-1. Check the [GitHub Issues](https://github.com/your-repo/issues) for similar problems
-2. Create a new issue with detailed error logs
-3. Include workflow run logs when reporting issues
-
----
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-- GitHub account with repository creation permissions
-- Gemini API key from Google AI Studio
-- Basic understanding of GitHub Actions
-
-### Quick Start
-1. **Fork this repository** to your GitHub account
-2. **Configure GitHub Secrets** in your repository settings:
-   - `GEMINI_API_KEY`: Your Gemini API key
-   - `GITHUB_TOKEN`: (automatically provided)
-3. **Copy workflow files** from `.github/workflows/` to your repository
-4. **Customize workflows** according to your needs
-5. **Test the setup** by creating an issue and commenting `@gemini-cli /help`
-
-### Advanced Configuration
-For additional features, configure these optional secrets:
-- `APP_ID` and `APP_PRIVATE_KEY`: For GitHub App integration
-- `GCP_WIF_PROVIDER` and related GCP variables: For Vertex AI usage
-
----
-
-## 📁 ディレクトリ構造
+## 📁 Directory Structure
 
 ```
 .
@@ -219,9 +160,9 @@ For additional features, configure these optional secrets:
 
 ---
 
-## 📝 ライセンス
+## 📝 License
 
-このプロジェクトは、[LICENSE](LICENSE)ファイルの条件に基づいてライセンスされています。
+This project is licensed under the terms of the [LICENSE](LICENSE) file.
 
 ---
 
