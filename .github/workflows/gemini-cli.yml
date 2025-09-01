@@ -217,15 +217,30 @@ jobs:
             exit 1
           fi
           # Safe variable substitution without executing content
-          EXPANDED=$(sed \
-            -e "s|\\$\\{REPOSITORY\\}|${REPOSITORY}|g" \
-            -e "s|\\$\\{EVENT_NAME\\}|${EVENT_NAME}|g" \
-            -e "s|\\$\\{ISSUE_NUMBER\\}|${ISSUE_NUMBER}|g" \
-            -e "s|\\$\\{IS_PR\\}|${IS_PR}|g" \
-            -e "s|\\$\\{DESCRIPTION\\}|${DESCRIPTION}|g" \
-            -e "s|\\$\\{COMMENTS\\}|${COMMENTS}|g" \
-            -e "s|\\$\\{USER_REQUEST\\}|${USER_REQUEST}|g" \
-            "${TEMPLATE_PATH}")
+          if command -v envsubst >/dev/null 2>&1; then
+            EXPANDED=$(\
+              REPOSITORY="${REPOSITORY}" \
+              EVENT_NAME="${EVENT_NAME}" \
+              ISSUE_NUMBER="${ISSUE_NUMBER}" \
+              IS_PR="${IS_PR}" \
+              DESCRIPTION="${DESCRIPTION}" \
+              COMMENTS="${COMMENTS}" \
+              USER_REQUEST="${USER_REQUEST}" \
+              envsubst '${REPOSITORY} ${EVENT_NAME} ${ISSUE_NUMBER} ${IS_PR} ${DESCRIPTION} ${COMMENTS} ${USER_REQUEST}' < "${TEMPLATE_PATH}"
+            )
+          else
+            # Fallback to perl if envsubst is unavailable
+            EXPANDED=$(\
+              REPOSITORY="${REPOSITORY}" \
+              EVENT_NAME="${EVENT_NAME}" \
+              ISSUE_NUMBER="${ISSUE_NUMBER}" \
+              IS_PR="${IS_PR}" \
+              DESCRIPTION="${DESCRIPTION}" \
+              COMMENTS="${COMMENTS}" \
+              USER_REQUEST="${USER_REQUEST}" \
+              perl -pe 's/\$\{REPOSITORY\}/$ENV{REPOSITORY}/g; s/\$\{EVENT_NAME\}/$ENV{EVENT_NAME}/g; s/\$\{ISSUE_NUMBER\}/$ENV{ISSUE_NUMBER}/g; s/\$\{IS_PR\}/$ENV{IS_PR}/g; s/\$\{DESCRIPTION\}/$ENV{DESCRIPTION}/g; s/\$\{COMMENTS\}/$ENV{COMMENTS}/g; s/\$\{USER_REQUEST\}/$ENV{USER_REQUEST}/g' "${TEMPLATE_PATH}"
+            )
+          fi
           {
             echo "prompt<<EOF"
             echo "${EXPANDED}"
