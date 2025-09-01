@@ -129,9 +129,7 @@ jobs:
             {
               "debug": true,
               "maxSessionTurns": 25,
-              "coreTools": [
-                "run_shell_command(echo)"
-              ],
+              "coreTools": [],
               "telemetry": {
                 "enabled": false,
                 "target": "gcp"
@@ -149,6 +147,10 @@ jobs:
             Please analyze this issue carefully and suggest appropriate labels from the available labels list.
             
             Important: Respond with ONLY the JSON object, no additional text or explanations before or after.
+
+            Constraints:
+            - Do NOT run any shell or external commands; use only the provided environment variables
+            - Do NOT attempt to execute `gh label list` or call the GitHub API to fetch labels. The available labels are already provided in "${AVAILABLE_LABELS}".
 
             Output format (JSON only):
             {"labels_to_set": ["label1", "label2"], "explanation": "reasoning for these labels"}
