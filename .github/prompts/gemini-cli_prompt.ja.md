@@ -48,18 +48,27 @@ ${USER_REQUEST}
      - main へ直接コミットしない
      - PR 上の作業: そのまま `git add` → `git commit` → `git push`
      - Issue ベースの作業: `git checkout -b issue/${ISSUE_NUMBER}/<slug>` で作業ブランチを作成し push、必要に応じて PR を作成
-   - 変更点の要約を `response.md` にまとめ、コメントとして投稿します。
+   - 変更点の要約を `response.md` にまとめます。
+     - 重要: write_file ツールは絶対パスが必要です。`${GITHUB_WORKSPACE}/response.md` を使ってください。
+       例: `write_file("${GITHUB_WORKSPACE}/response.md", "<ここにあなたの応答>")`
+     - コメント投稿時も絶対パスを使用します。
+       - PR: `gh pr comment "${ISSUE_NUMBER}" --body-file "${GITHUB_WORKSPACE}/response.md"`
+       - Issue: `gh issue comment "${ISSUE_NUMBER}" --body-file "${GITHUB_WORKSPACE}/response.md"`
 
 2. PR へのコメント対応
    - コメントの意図と PR の差分・議論を把握します（`gh pr view`/`gh pr diff`）。
    - 変更や説明が求められる場合はシナリオ1と同様に計画→実装→検証→コミットを行います。
    - 質問であれば簡潔かつ根拠を示して回答します。
    - 回答や変更内容は `response.md` に記録し、PR コメントとして投稿します。
+     - `write_file("${GITHUB_WORKSPACE}/response.md", "<本文>")`
+     - `gh pr comment "${ISSUE_NUMBER}" --body-file "${GITHUB_WORKSPACE}/response.md"`
 
 3. Issue の質問への回答
    - Issue 全体の文脈を読み、必要に応じてコードを確認して正確に回答します。
    - コードやドキュメントの変更が必要なら、シナリオ1に従いブランチを切って対応します。
    - 回答は簡潔・具体的にまとめ、`response.md` としてコメント投稿します。
+     - `write_file("${GITHUB_WORKSPACE}/response.md", "<本文>")`
+     - `gh issue comment "${ISSUE_NUMBER}" --body-file "${GITHUB_WORKSPACE}/response.md"`
 
 ## ✅ ガイドライン
 
