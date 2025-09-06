@@ -1,0 +1,10 @@
+{
+  "generation_date": "2025-09-06T11:49:51Z",
+  "prompt": "A beautiful Japanese landscape with cherry blossoms and mountains",
+  "model": "imagen-4",
+  "num_images": 2,
+  "aspect_ratio": "1:1",
+  "seed": "",
+  "workflow_run": "12",
+  "commit_sha": "b466018b57025ce0bde38ed96e71f39ea8c9b486"
+}
