@@ -1,4 +1,4 @@
-name: 🖼 imagen4-commit-via-gemini-cli
+name: imagen4-commit-via-gemini-cli
 
 on:
   workflow_dispatch:
