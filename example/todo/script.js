@@ -3,78 +3,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const addButton = document.getElementById('add-button');
     const todoList = document.getElementById('todo-list');
 
-    // ローカルストレージからタスクを読み込む
-    const loadTasks = () => {
-        const tasks = JSON.parse(localStorage.getItem('todos')) || [];
-        tasks.forEach(task => createTaskElement(task.text, task.completed));
+    // ローカルストレージからTODOを読み込む
+    const loadTodos = () => {
+        const todos = JSON.parse(localStorage.getItem('todos')) || [];
+        todos.forEach(todo => {
+            addTodoToList(todo.text, todo.completed);
+        });
     };
 
-    // タスクをローカルストレージに保存する
-    const saveTasks = () => {
-        const tasks = [];
-        todoList.querySelectorAll('.todo-item').forEach(item => {
-            tasks.push({
-                text: item.querySelector('span').textContent,
-                completed: item.classList.contains('completed')
+    // ローカルストレージにTODOを保存する
+    const saveTodos = () => {
+        const todos = [];
+        todoList.querySelectorAll('li').forEach(li => {
+            todos.push({
+                text: li.querySelector('span').textContent,
+                completed: li.classList.contains('completed')
             });
         });
-        localStorage.setItem('todos', JSON.stringify(tasks));
+        localStorage.setItem('todos', JSON.stringify(todos));
     };
 
-    // タスク要素を作成する
-    const createTaskElement = (taskText, isCompleted = false) => {
+    // TODOをリストに追加する
+    const addTodoToList = (text, completed = false) => {
         const li = document.createElement('li');
-        li.classList.add('todo-item');
-        if (isCompleted) {
+        if (completed) {
             li.classList.add('completed');
         }
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = isCompleted;
-        checkbox.addEventListener('change', () => {
-            li.classList.toggle('completed');
-            saveTasks();
-        });
-
         const span = document.createElement('span');
-        span.textContent = taskText;
+        span.textContent = text;
+        span.addEventListener('click', () => {
+            li.classList.toggle('completed');
+            saveTodos();
+        });
 
         const deleteButton = document.createElement('button');
         deleteButton.textContent = '削除';
         deleteButton.classList.add('delete-button');
         deleteButton.addEventListener('click', () => {
             li.remove();
-            saveTasks();
+            saveTodos();
         });
 
-        li.appendChild(checkbox);
         li.appendChild(span);
         li.appendChild(deleteButton);
         todoList.appendChild(li);
     };
 
-    // タスクを追加する
-    const addTask = () => {
-        const taskText = todoInput.value.trim();
-        if (taskText === '') {
-            alert('タスクを入力してください。');
-            return;
-        }
-        createTaskElement(taskText);
-        saveTasks();
-        todoInput.value = '';
-        todoInput.focus();
-    };
-
-    // イベントリスナーを設定
-    addButton.addEventListener('click', addTask);
-    todoInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            addTask();
+    // 追加ボタンのクリックイベント
+    addButton.addEventListener('click', () => {
+        const todoText = todoInput.value.trim();
+        if (todoText) {
+            addTodoToList(todoText);
+            saveTodos();
+            todoInput.value = '';
         }
     });
 
-    // 初期タスクを読み込む
-    loadTasks();
+    // Enterキーでの追加
+    todoInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            addButton.click();
+        }
+    });
+
+    // 初期化
+    loadTodos();
 });
