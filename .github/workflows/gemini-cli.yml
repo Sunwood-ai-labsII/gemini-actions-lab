@@ -76,7 +76,7 @@ jobs:
       github.event_name == 'issues' && github.event.action == 'opened' &&
       contains(github.event.issue.body, '@gemini-cli')
 
-    timeout-minutes: 10
+          timeout-minutes: 10
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Debug Event Information'
@@ -129,8 +129,8 @@ jobs:
           # Clean up user request
           CLEANED_USER_REQUEST=$(echo "${USER_REQUEST}" | sed 's/.*@gemini-cli//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           
-          # ⬇⬇⬇ ここを修正 ⬇⬇⬇
-          # GITHUB_OUTPUTへの書き込みをヒアドキュメント形式に変更
+          # ⬇⬇⬇ ここからが修正箇所 ⬇⬇⬇
+          # GITHUB_OUTPUTへの書き込みをヒアドキュメント形式に変更して、特殊文字によるエラーを回避
           {
             echo 'user_request<<EOF'
             echo "${CLEANED_USER_REQUEST}"
@@ -138,6 +138,7 @@ jobs:
             echo "issue_number=${ISSUE_NUMBER}"
             echo "is_pr=${IS_PR}"
           } >> "${GITHUB_OUTPUT}"
+          # ⬆⬆⬆ ここまでが修正箇所 ⬆⬆⬆
 
       - name: 'Set up git user for commits'
         run: |-
