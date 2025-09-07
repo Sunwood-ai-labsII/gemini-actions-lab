@@ -167,6 +167,14 @@ graph TD
 
 ---
 
+
+
+## 🤖 Discord Issue Bot
+
+Discord から直接 GitHub Issue を作成する最小ボットの詳細なドキュメントは、以下を参照してください。
+
+- ドキュメント: [discord-issue-bot/README.md](discord-issue-bot/README.md)
+
 ## 📝 ライセンス
 
 このプロジェクトは、[LICENSE](LICENSE)ファイルの条件に基づいてライセンスされています。
@@ -177,25 +185,3 @@ graph TD
 
 
 ---
-
-## 🤖 Discord Issue Bot（ワークフロー不要・最小構成）
-
-- 直に GitHub REST API で Issue を作成する最小ボットです。
-- 必要な環境変数は 2 つのみ: `DISCORD_BOT_TOKEN`, `GITHUB_TOKEN`。
-
-使い方:
-```
-export DISCORD_BOT_TOKEN=xxxx
-export GITHUB_TOKEN=ghp_xxx
-cd discord-issue-bot
-docker compose -f compose.yaml up -d --build
-```
-
-Discord で投稿（例）:
-```
-!issue owner/repo "バグ: 保存できない" 再現手順… #kind/bug +maki
-```
-ルール:
-- 先頭 `!issue`、直後に `owner/repo` を含める
-- タイトルは "ダブルクオート" で囲む（未指定時は1行目をタイトル）
-- `#label` がラベル、`+user` がアサイン
