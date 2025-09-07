@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+:root {
+    --background-color: #f4f3ef;
+    --font-color: #333333;
+    --accent-color: #4a5a8b; /* 藍色 */
+    --accent-hover-color: #3a4a7b;
+    --border-color: #cccccc;
+    --completed-color: #999999;
+    --container-background: #ffffff;
+    --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background-color: var(--background-color);
+    color: var(--font-color);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding-top: 50px;
+}
+
+.container {
+    width: 100%;
+    max-width: 500px;
+    background-color: var(--container-background);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px var(--shadow-color);
+    padding: 30px;
+    border: 1px solid #eee;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 300;
+    text-align: center;
+    margin-bottom: 20px;
+    letter-spacing: 0.2em;
+    color: var(--accent-color);
+}
+
+#todo-form {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+#todo-input {
+    flex-grow: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 4px 0 0 4px;
+    padding: 12px 15px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+#todo-input:focus {
+    border-color: var(--accent-color);
+}
+
+#todo-form button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 0 25px;
+    cursor: pointer;
+    border-radius: 0 4px 4px 0;
+    font-size: 1rem;
+    font-weight: 700;
+    transition: background-color 0.3s;
+}
+
+#todo-form button:hover {
+    background-color: var(--accent-hover-color);
+}
+
+#todo-list {
+    list-style: none;
+}
+
+#todo-list li {
+    display: flex;
+    align-items: center;
+    padding: 12px 5px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+#todo-list li:last-child {
+    border-bottom: none;
+}
+
+#todo-list li .todo-text {
+    flex-grow: 1;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+#todo-list li.completed .todo-text {
+    text-decoration: line-through;
+    color: var(--completed-color);
+}
+
+#todo-list li .delete-btn {
+    background: none;
+    border: none;
+    color: #cc0000;
+    cursor: pointer;
+    font-size: 1.2rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    padding: 5px;
+}
+
+#todo-list li:hover .delete-btn {
+    opacity: 1;
+}
