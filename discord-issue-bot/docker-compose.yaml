@@ -1,6 +1,8 @@
 services:
   bot:
     build: .
+    env_file:
+      - .env
     environment:
       - DISCORD_BOT_TOKEN
       - GITHUB_TOKEN
