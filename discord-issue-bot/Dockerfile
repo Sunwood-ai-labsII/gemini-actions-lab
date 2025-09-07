@@ -5,6 +5,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY pyproject.toml ./
-RUN uv sync --frozen
+RUN uv sync
 COPY . .
 CMD ["uv", "run", "bot.py"]
