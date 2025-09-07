@@ -15,136 +15,136 @@
 
 ---
 
-## 📖 Overview
+## 📖 概要
 
-This repository serves as a laboratory and showcase for integrating Google's Gemini AI with GitHub Actions. It demonstrates how to automate various repository management tasks using the power of generative AI.
+このリポジトリは、GoogleのGemini AIをGitHub Actionsと統合するための実験室およびショーケースとして機能します。生成AIの力を利用して、さまざまなリポジトリ管理タスクを自動化する方法を示します。
 
-### 🎯 Key Features
-- **AI-Powered Automation**: Leverage Gemini to handle tasks like issue triage, pull request reviews, and more.
-- **CLI-like Interaction**: Interact with the AI assistant directly from issue comments.
-- **Extensible Workflows**: Easily adapt and customize the workflows for your own projects.
+### 🎯 主な機能
+- **AIによる自動化**: Geminiを活用して、Issueのトリアージ、プルリクエストのレビューなどのタスクを処理します。
+- **CLIライクな対話**: Issueのコメントから直接AIアシスタントと対話します。
+- **拡張可能なワークフロー**: 独自のプロジェクトに合わせてワークフローを簡単に適応およびカスタマイズできます。
 
 ---
 
-## 🤖 Workflows
+## 🤖 ワークフロー
 
-This repository includes the following GitHub Actions workflows:
+このリポジトリには、以下のGitHub Actionsワークフローが含まれています：
 
 ### 📄 `gemini-cli-jp.yml`
-- **Trigger**: Issue comments
-- **Function**: Allows users to interact with a Gemini-powered CLI assistant by creating comments on issues (e.g., `@gemini-cli-jp /do-something`). The assistant can then perform actions on the repository based on the user's request.
+- **トリガー**: Issueのコメント
+- **機能**: ユーザーがIssueにコメント（例：`@gemini-cli-jp /do-something`）を作成することで、Gemini搭載のCLIアシスタントと対話できるようにします。アシスタントは、ユーザーのリクエストに基づいてリポジトリでアクションを実行できます。
 
 ###  triage `gemini-issue-automated-triage.yml`
-- **Trigger**: Issue creation or edits
-- **Function**: Automatically triages new or updated issues. It can add labels, assignees, or post comments based on the issue's content as determined by Gemini.
+- **トリガー**: Issueの作成または編集
+- **機能**: 新規または更新されたIssueを自動的にトリアージします。Geminiによって決定されたIssueの内容に基づいて、ラベルの追加、担当者の割り当て、またはコメントの投稿ができます。
 
 ### 🕒 `gemini-issue-scheduled-triage.yml`
-- **Trigger**: Scheduled cron job
-- **Function**: Periodically scans open issues and performs triage tasks, such as identifying stale issues or suggesting priorities.
+- **トリガー**: スケジュールされたcronジョブ
+- **機能**: 定期的にオープンなIssueをスキャンし、古いIssueの特定や優先順位の提案などのトリアージタスクを実行します。
 
 ### 🔍 `gemini-pr-review.yml`
-- **Trigger**: Pull request creation or updates
-- **Function**: Automatically reviews pull requests. Gemini can provide feedback on code quality, suggest improvements, or identify potential issues.
+- **トリガー**: プルリクエストの作成または更新
+- **機能**: プルリクエストを自動的にレビューします。Geminiは、コードの品質に関するフィードバックの提供、改善の提案、または潜在的な問題の特定ができます。
 
 ### 🔄 `sync-to-report-gh.yml`
-- **Trigger**: Push to the main branch
-- **Function**: This is a legacy workflow from a previous template and is not actively used in this lab. It was designed to sync daily reports to a central repository.
+- **トリガー**: mainブランチへのプッシュ
+- **機能**: これは以前のテンプレートからのレガシーワークフローであり、このラボでは積極的に使用されていません。日次レポートを中央リポジトリに同期するように設計されていました。
 
 ---
 
-## 📸 Screenshots & Examples
+## 📸 スクリーンショットと例
 
-### 🤖 CLI Interaction Example
-Create an issue and comment with `@gemini-cli /help` to see available commands:
+### 🤖 CLIの対話例
+Issueを作成し、`@gemini-cli-jp /help`とコメントして、利用可能なコマンドを確認します:
 
 ```
-@gemini-cli /help
+@gemini-cli-jp /help
 ```
 
-The AI assistant will respond with available commands and usage examples.
+AIアシスタントが利用可能なコマンドと使用例を返信します。
 
-### 🏗️ Workflow Architecture
+### 🏗️ ワークフローのアーキテクチャ
 ```mermaid
 graph TD
-    A[GitHub Issue/PR] --> B[GitHub Actions Trigger]
-    B --> C[Gemini CLI Workflow]
-    C --> D[Gemini AI Processing]
-    D --> E[Repository Actions]
-    E --> F[Automated Response]
+    A[GitHub Issue/PR] --> B[GitHub Actions トリガー]
+    B --> C[Gemini CLI ワークフロー]
+    C --> D[Gemini AI 処理]
+    D --> E[リポジトリ操作]
+    E --> F[自動応答]
 
-    G[Schedule/Cron] --> H[Automated Triage]
-    H --> I[Issue Management]
+    G[スケジュール/Cron] --> H[自動トリアージ]
+    H --> I[Issue管理]
 
-    J[PR Created] --> K[PR Review Workflow]
-    K --> L[Code Analysis]
-    L --> M[Feedback & Suggestions]
+    J[PR作成] --> K[PRレビューワークフロー]
+    K --> L[コード解析]
+    L --> M[フィードバックと提案]
 ```
 
-### 💬 Example Interactions
+### 💬 対話の例
 
-**Code Review Request:**
+**コードレビューのリクエスト:**
 ```
-@gemini-cli /review-pr
-Please review this pull request and suggest improvements
+@gemini-cli-jp /review-pr
+このプルリクエストをレビューし、改善点を提案してください
 ```
 
-**Issue Triage:**
+**Issueのトリアージ:**
 ```
-@gemini-cli /triage
-Analyze this issue and suggest appropriate labels and assignees
+@gemini-cli-jp /triage
+このIssueを分析し、適切なラベルと担当者を提案してください
 ```
 
 ---
 
-## 🛠️ Troubleshooting
+## 🛠️ トラブルシューティング
 
-### Common Issues
+### 一般的な問題
 
-**❌ Workflow not triggering:**
-- Check if GitHub Actions are enabled in repository settings
-- Verify webhook delivery in repository settings
-- Ensure the trigger conditions are met (e.g., `@gemini-cli` in comment)
+**❌ ワークフローがトリガーされない:**
+- リポジトリの設定でGitHub Actionsが有効になっているか確認してください
+- リポジトリの設定でWebhookの配信を確認してください
+- トリガー条件（例：コメントに`@gemini-cli-jp`が含まれているか）が満たされているか確認してください
 
-**❌ Gemini API errors:**
-- Verify `GEMINI_API_KEY` secret is configured
-- Check API key permissions and quota
-- Ensure the API key is valid and not expired
+**❌ Gemini APIのエラー:**
+- `GEMINI_API_KEY`シークレットが設定されているか確認してください
+- APIキーの権限とクォータを確認してください
+- APIキーが有効で期限切れでないことを確認してください
 
-**❌ Permission errors:**
-- Confirm the user has write permissions
-- Check if the repository is private (affects trusted user detection)
+**❌ 権限エラー:**
+- ユーザーに書き込み権限があることを確認してください
+- リポジトリがプライベートでないか確認してください（信頼されたユーザーの検出に影響します）
 
-### Getting Help
-1. Check the [GitHub Issues](https://github.com/your-repo/issues) for similar problems
-2. Create a new issue with detailed error logs
-3. Include workflow run logs when reporting issues
-
----
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-- GitHub account with repository creation permissions
-- Gemini API key from Google AI Studio
-- Basic understanding of GitHub Actions
-
-### Quick Start
-1. **Fork this repository** to your GitHub account
-2. **Configure GitHub Secrets** in your repository settings:
-   - `GEMINI_API_KEY`: Your Gemini API key
-   - `GITHUB_TOKEN`: (automatically provided)
-3. **Copy workflow files** from `.github/workflows/` to your repository
-4. **Customize workflows** according to your needs
-5. **Test the setup** by creating an issue and commenting `@gemini-cli /help`
-
-### Advanced Configuration
-For additional features, configure these optional secrets:
-- `APP_ID` and `APP_PRIVATE_KEY`: For GitHub App integration
-- `GCP_WIF_PROVIDER` and related GCP variables: For Vertex AI usage
+### ヘルプの入手方法
+1. [GitHub Issues](https://github.com/your-repo/issues)で同様の問題がないか確認してください
+2. 詳細なエラーログを記載した新しいIssueを作成してください
+3. Issueを報告する際には、ワークフローの実行ログを含めてください
 
 ---
 
-## 📁 Directory Structure
+## 🚀 インストールとセットアップ
+
+### 前提条件
+- リポジトリ作成権限のあるGitHubアカウント
+- Google AI StudioのGemini APIキー
+- GitHub Actionsの基本的な理解
+
+### クイックスタート
+1. **このリポジトリをフォーク**して、自分のGitHubアカウントにコピーします
+2. リポジトリの設定で**GitHubシークレットを設定**します:
+   - `GEMINI_API_KEY`: あなたのGemini APIキー
+   - `GITHUB_TOKEN`: (自動的に提供されます)
+3. `.github/workflows/`からあなたのリポジトリに**ワークフローファイルをコピー**します
+4. あなたのニーズに合わせて**ワークフローをカスタマイズ**します
+5. Issueを作成し、`@gemini-cli-jp /help`とコメントして**セットアップをテスト**します
+
+### 高度な設定
+追加機能を利用するには、これらのオプションのシークレットを設定します:
+- `APP_ID`と`APP_PRIVATE_KEY`: GitHub App連携用
+- `GCP_WIF_PROVIDER`と関連するGCP変数: Vertex AI利用のため
+
+---
+
+## 📁 ディレクトリ構造
 
 ```
 .
@@ -155,6 +155,11 @@ For additional features, configure these optional secrets:
 │       ├── gemini-issue-scheduled-triage.yml
 │       ├── gemini-pr-review.yml
 │       └── sync-to-report-gh.yml
+├── discord-issue-bot/
+│   ├── Dockerfile
+│   ├── pyproject.toml
+│   ├── compose.yaml
+│   └── bot.py
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -162,10 +167,35 @@ For additional features, configure these optional secrets:
 
 ---
 
-## 📝 License
+## 📝 ライセンス
 
-This project is licensed under the terms of the [LICENSE](LICENSE) file.
+このプロジェクトは、[LICENSE](LICENSE)ファイルの条件に基づいてライセンスされています。
 
 ---
 
 © 2025 Sunwood-ai-labsII
+
+
+---
+
+## 🤖 Discord Issue Bot（ワークフロー不要・最小構成）
+
+- 直に GitHub REST API で Issue を作成する最小ボットです。
+- 必要な環境変数は 2 つのみ: `DISCORD_BOT_TOKEN`, `GITHUB_TOKEN`。
+
+使い方:
+```
+export DISCORD_BOT_TOKEN=xxxx
+export GITHUB_TOKEN=ghp_xxx
+cd discord-issue-bot
+docker compose -f compose.yaml up -d --build
+```
+
+Discord で投稿（例）:
+```
+!issue owner/repo "バグ: 保存できない" 再現手順… #kind/bug +maki
+```
+ルール:
+- 先頭 `!issue`、直後に `owner/repo` を含める
+- タイトルは "ダブルクオート" で囲む（未指定時は1行目をタイトル）
+- `#label` がラベル、`+user` がアサイン

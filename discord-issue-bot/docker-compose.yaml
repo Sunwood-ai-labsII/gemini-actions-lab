@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    environment:
+      - DISCORD_BOT_TOKEN
+      - GITHUB_TOKEN
+    restart: unless-stopped
