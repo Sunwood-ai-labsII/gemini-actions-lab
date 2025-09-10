@@ -227,6 +227,9 @@ jobs:
             
             const outputDir = process.env.OUTPUT_DIR;
             const fileCount = process.env.FILE_COUNT || '0';
+            const repoOwner = context.repo.owner;
+            const repoName = context.repo.repo;
+            const branch = 'main'; // または context.ref.replace('refs/heads/', '')
             
             let commentBody = `## 🎨 画像生成完了\n\n`;
             commentBody += `**プロンプト:** ${{ needs.check_trigger.outputs.image_prompt }}\n`;
@@ -240,8 +243,9 @@ jobs:
               if (files.length > 0) {
                 commentBody += `### 生成されたファイル\n`;
                 files.forEach(file => {
-                  const relativePath = path.join(outputDir, file);
-                  commentBody += `- [${file}](${relativePath})\n`;
+                  const relativePath = path.join(outputDir, file).replace(/\\/g, '/');
+                  const rawUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/refs/heads/${branch}/${relativePath}`;
+                  commentBody += `- [${file}](${rawUrl})\n`;
                 });
                 commentBody += `\n📁 [アーティファクトをダウンロード](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
               } else {
