@@ -1,0 +1,12 @@
+{
+  "generation_date": "2025-09-10T15:27:24Z",
+  "prompt": "ロボットが料理をしている",
+  "model": "imagen-4",
+  "num_images": 2,
+  "aspect_ratio": "16:9",
+  "seed": "",
+  "workflow_run": "2",
+  "commit_sha": "237089f1a4965e961746ffe86db0e2fc590a3f55",
+  "issue_number": 56,
+  "triggered_by": "Sunwood-ai-labs"
+}
