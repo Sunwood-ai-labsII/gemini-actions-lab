@@ -1,0 +1,12 @@
+{
+  "generation_date": "2025-09-10T23:36:35Z",
+  "prompt": "夕日に染まる海岸",
+  "model": "imagen-4-ultra",
+  "num_images": 3,
+  "aspect_ratio": "16:9",
+  "seed": "",
+  "workflow_run": "7",
+  "commit_sha": "819d0ba99d46365933ced8969540814baab00833",
+  "issue_number": 58,
+  "triggered_by": "Sunwood-ai-labs"
+}
