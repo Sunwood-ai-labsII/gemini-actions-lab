@@ -241,13 +241,15 @@ jobs:
             if (fs.existsSync(outputDir)) {
               const files = fs.readdirSync(outputDir).filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'));
               if (files.length > 0) {
-                commentBody += `### 生成されたファイル\n`;
-                files.forEach(file => {
+                commentBody += `### 🖼️ 生成された画像\n\n`;
+                files.forEach((file, index) => {
                   const relativePath = path.join(outputDir, file).replace(/\\/g, '/');
                   const rawUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/refs/heads/${branch}/${relativePath}`;
-                  commentBody += `- [${file}](${rawUrl})\n`;
+                  commentBody += `#### 画像 ${index + 1}: ${file}\n`;
+                  commentBody += `![${file}](${rawUrl})\n`;
+                  commentBody += `[🔗 直接リンク](${rawUrl})\n\n`;
                 });
-                commentBody += `\n📁 [アーティファクトをダウンロード](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+                commentBody += `📁 [アーティファクトをダウンロード](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
               } else {
                 commentBody += `❌ 画像の生成に失敗しました。\n`;
               }
