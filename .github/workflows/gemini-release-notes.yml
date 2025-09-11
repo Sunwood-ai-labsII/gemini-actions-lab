@@ -274,11 +274,17 @@ jobs:
       - name: Write notes to file (with header image)
         env:
           HEADER_URL: "${{ steps.header.outputs.raw_url }}"
+          IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
         run: |
           set -euo pipefail
           : > release_notes.md
-          if [[ -n "${HEADER_URL}" ]]; then
-            printf '![Release Header](%s)\n\n' "${HEADER_URL}" >> release_notes.md
+          if [[ -n "${HEADER_URL}" && -n "${IMAGE_NAME}" ]]; then
+            {
+              echo "#### 画像 1: ${IMAGE_NAME}"
+              echo "![${IMAGE_NAME}](${HEADER_URL})"
+              echo "[🔗 直接リンク](${HEADER_URL})"
+              echo
+            } >> release_notes.md
           fi
           # Append the model-generated notes without expanding variables
           cat >> release_notes.md << 'EOF'
