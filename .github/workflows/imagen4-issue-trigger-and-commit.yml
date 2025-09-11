@@ -55,7 +55,6 @@ jobs:
             let aspectRatio = '1:1';
             let seed = '';
             
-            // model:値 の形式でパラメータを抽出
             const modelMatch = comment.match(/model:\s*([^\s,]+)/i);
             if (modelMatch) model = modelMatch[1];
             
@@ -71,9 +70,7 @@ jobs:
             // プロンプトからパラメータ部分を除去
             prompt = prompt.replace(/\s*(model|num|ratio|seed):\s*[^\s,]+/gi, '').trim();
             
-            console.log('Parsed parameters:', {
-              prompt, model, num, aspectRatio, seed
-            });
+            console.log('Parsed parameters:', { prompt, model, num, aspectRatio, seed });
             
             core.setOutput('image_prompt', prompt);
             core.setOutput('model', model);
@@ -92,14 +89,25 @@ jobs:
       pull-requests: write
       
     steps:
-      - name: Add reaction to trigger comment
+      # ここで「トリガー（コメント or issue本文）」と「issue本体」の両方に 👀 を付与
+      - name: Add reaction to trigger (comment or issue body)
         uses: actions/github-script@v7
         with:
           script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+
+            // issue本体へ 👀
+            await github.rest.reactions.createForIssue({
+              owner, repo,
+              issue_number,
+              content: 'eyes'
+            });
+
+            // コメントイベントならコメントにも 👀
             if (context.payload.comment) {
               await github.rest.reactions.createForIssueComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner, repo,
                 comment_id: context.payload.comment.id,
                 content: 'eyes'
               });
@@ -168,7 +176,7 @@ jobs:
 
       - name: Add metadata file
         run: |
-          cat > "$OUTPUT_DIR/metadata.json" << EOF
+          cat > "$OUTPUT_DIR/metadata.json" << 'EOF'
           {
             "generation_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "prompt": "${{ needs.check_trigger.outputs.image_prompt }}",
@@ -196,7 +204,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "🎨 Generate images for issue #${{ github.event.issue.number }}
-            
+
             Prompt: ${{ needs.check_trigger.outputs.image_prompt }}
             Model: ${{ needs.check_trigger.outputs.model }}
             Images: ${{ needs.check_trigger.outputs.num }}
@@ -227,9 +235,9 @@ jobs:
             
             const outputDir = process.env.OUTPUT_DIR;
             const fileCount = process.env.FILE_COUNT || '0';
-            const repoOwner = context.repo.owner;
-            const repoName = context.repo.repo;
-            const branch = 'main'; // または context.ref.replace('refs/heads/', '')
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const branch = 'main'; // 必要に応じて変更
             
             let commentBody = `## 🎨 画像生成完了\n\n`;
             commentBody += `**プロンプト:** ${{ needs.check_trigger.outputs.image_prompt }}\n`;
@@ -239,16 +247,16 @@ jobs:
             commentBody += `**シード:** ${{ needs.check_trigger.outputs.seed || 'ランダム' }}\n\n`;
             
             if (fs.existsSync(outputDir)) {
-              const files = fs.readdirSync(outputDir).filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'));
+              const files = fs.readdirSync(outputDir).filter(f => /\.(png|jpg|jpeg)$/i.test(f));
               if (files.length > 0) {
                 commentBody += `### 🖼️ 生成された画像\n\n`;
-                files.forEach((file, index) => {
+                for (const [idx, file] of files.entries()) {
                   const relativePath = path.join(outputDir, file).replace(/\\/g, '/');
-                  const rawUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/refs/heads/${branch}/${relativePath}`;
-                  commentBody += `#### 画像 ${index + 1}: ${file}\n`;
+                  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/refs/heads/${branch}/${relativePath}`;
+                  commentBody += `#### 画像 ${idx + 1}: ${file}\n`;
                   commentBody += `![${file}](${rawUrl})\n`;
                   commentBody += `[🔗 直接リンク](${rawUrl})\n\n`;
-                });
+                }
                 commentBody += `📁 [アーティファクトをダウンロード](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
               } else {
                 commentBody += `❌ 画像の生成に失敗しました。\n`;
@@ -260,32 +268,51 @@ jobs:
             commentBody += `\n---\n*Workflow run: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*`;
             
             await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
+              owner, repo,
+              issue_number,
               body: commentBody
             });
 
-      - name: Add success reaction
+      # 成功時：コメント＆issue本体にリアクション
+      - name: Add success reactions (comment & issue)
         uses: actions/github-script@v7
-        if: success() && github.event.comment
+        if: success()
         with:
           script: |
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: '+1'
-            });
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
 
-      - name: Add failure reaction
+            // issue本体へ 👍 と 🚀
+            await github.rest.reactions.createForIssue({ owner, repo, issue_number, content: '+1' });
+            await github.rest.reactions.createForIssue({ owner, repo, issue_number, content: 'rocket' });
+
+            // コメントがトリガーなら、コメントにも 👍
+            if (context.payload.comment) {
+              await github.rest.reactions.createForIssueComment({
+                owner, repo,
+                comment_id: context.payload.comment.id,
+                content: '+1'
+              });
+            }
+
+      # 失敗時：コメント＆issue本体にリアクション
+      - name: Add failure reactions (comment & issue)
         uses: actions/github-script@v7
-        if: failure() && github.event.comment
+        if: failure()
         with:
           script: |
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: context.payload.comment.id,
-              content: '-1'
-            });
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+
+            // issue本体へ 👎 と 😕
+            await github.rest.reactions.createForIssue({ owner, repo, issue_number, content: '-1' });
+            await github.rest.reactions.createForIssue({ owner, repo, issue_number, content: 'confused' });
+
+            // コメントがトリガーなら、コメントにも 👎
+            if (context.payload.comment) {
+              await github.rest.reactions.createForIssueComment({
+                owner, repo,
+                comment_id: context.payload.comment.id,
+                content: '-1'
+              });
+            }
