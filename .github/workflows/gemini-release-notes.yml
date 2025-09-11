@@ -171,7 +171,12 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "🎨 Release image for ${{ steps.ctx.outputs.tag }}\n\nModel: imagen-4-ultra\nImages: 1\nAspect ratio: 16:9\nGenerated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git commit \
+              -m "🎨 Release image for ${{ steps.ctx.outputs.tag }}" \
+              -m "Model: imagen-4-ultra" \
+              -m "Images: 1" \
+              -m "Aspect ratio: 16:9" \
+              -m "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             git push origin HEAD:${{ github.event.repository.default_branch }}
             echo "✅ Committed release image"
           fi
