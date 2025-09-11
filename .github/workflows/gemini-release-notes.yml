@@ -191,11 +191,13 @@ jobs:
           set -euo pipefail
           dir="${OUTPUT_DIR}"
           if [[ -d "${dir}" ]]; then
-            img=$(ls -1 "${dir}" | grep -Ei '\\.(png|jpg|jpeg)$' | head -n 1 || true)
+            # Find the first image file by common extensions
+            img=$(ls -1 "${dir}" | grep -Ei '\.(png|jpg|jpeg)$' | head -n 1 || true)
             if [[ -n "${img:-}" ]]; then
               image_path="${dir}/${img}"
               image_name="${img}"
-              raw_url="https://raw.githubusercontent.com/${REPOSITORY}/refs/heads/${DEFAULT_BRANCH}/${image_path}"
+              # Build canonical raw URL: https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>
+              raw_url="https://raw.githubusercontent.com/${REPOSITORY}/${DEFAULT_BRANCH}/${image_path}"
               echo "image_path=${image_path}" >> "$GITHUB_OUTPUT"
               echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
               echo "raw_url=${raw_url}" >> "$GITHUB_OUTPUT"
