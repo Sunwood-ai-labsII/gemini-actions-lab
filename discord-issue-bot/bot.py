@@ -58,9 +58,12 @@ def parse(content: str):
         title = lines[0].strip() if lines else "New Issue"
         body = "\n".join(lines[1:]).strip()
 
-    # Extract labels (#label) and assignees (+user)
-    labels = [tok[1:].strip() for tok in re.findall(r'(#[\w\-/\.]+)', text_wo_repo)]
-    assignees = [tok[1:].strip() for tok in re.findall(r'(\+[A-Za-z0-9-]+)', text_wo_repo)]
+    # Extract labels (#label) and assignees (+user) from non-code text only
+    # Remove fenced and inline code to avoid accidental captures (e.g., diff lines starting with '+')
+    text_no_code = re.sub(r"```[\s\S]*?```", "", text_wo_repo)
+    text_no_code = re.sub(r"`[^`]*`", "", text_no_code)
+    labels = [tok[1:].strip() for tok in re.findall(r'(#[\w\-/\.]+)', text_no_code)]
+    assignees = [tok[1:].strip() for tok in re.findall(r'(\+[A-Za-z0-9-]+)', text_no_code)]
 
     # Clean tokens from body
     body = re.sub(r'(#[\w\-/\.]+)', '', body)
@@ -120,12 +123,42 @@ class Bot(discord.Client):
             data = json.loads(resp) if resp else {}
         except Exception:
             data = {}
+
+        # Success
         if status in (200, 201):
             issue_url = data.get("html_url", "")
             number = data.get("number", "?")
             await message.reply(f"Issueを作成しました: #{number} {issue_url}", mention_author=False)
         else:
-            await message.reply(f"作成失敗: {status}\n{resp[:1500]}", mention_author=False)
+            # If assignees are invalid (422), retry once without assignees
+            retried = False
+            if status == 422 and isinstance(data, dict):
+                errors = data.get("errors") or []
+                invalid_assignees = None
+                for err in errors:
+                    if isinstance(err, dict) and err.get("field") == "assignees":
+                        invalid_assignees = err.get("value") or parsed.get("assignees")
+                        break
+                if invalid_assignees and payload.get("assignees"):
+                    retry_payload = dict(payload)
+                    retry_payload.pop("assignees", None)
+                    status2, resp2 = http_post(url, GITHUB_TOKEN, retry_payload)
+                    try:
+                        data2 = json.loads(resp2) if resp2 else {}
+                    except Exception:
+                        data2 = {}
+                    if status2 in (200, 201):
+                        issue_url = data2.get("html_url", "")
+                        number = data2.get("number", "?")
+                        invalid_list = ", ".join(map(str, invalid_assignees)) if isinstance(invalid_assignees, list) else str(invalid_assignees)
+                        await message.reply(
+                            f"Issueを作成しました: #{number} {issue_url}\n（注意: 次のユーザーはアサインできませんでした → {invalid_list}）",
+                            mention_author=False,
+                        )
+                        retried = True
+
+            if not retried:
+                await message.reply(f"作成失敗: {status}\n{(resp or '')[:1500]}", mention_author=False)
 
 
 def main():
@@ -138,4 +171,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
