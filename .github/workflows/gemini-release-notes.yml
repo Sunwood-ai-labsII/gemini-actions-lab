@@ -285,8 +285,10 @@ jobs:
           : > release_notes.md
           if [[ -n "${HEADER_URL}" && -n "${IMAGE_NAME}" ]]; then
             {
-              echo "#### 画像 1: ${IMAGE_NAME}"
+              # Image first at the very top
               echo "![${IMAGE_NAME}](${HEADER_URL})"
+              echo
+              echo "#### ヘッダー画像: ${IMAGE_NAME}"
               echo "[🔗 直接リンク](${HEADER_URL})"
               echo
             } >> release_notes.md
