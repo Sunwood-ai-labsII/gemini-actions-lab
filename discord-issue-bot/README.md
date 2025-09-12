@@ -31,9 +31,10 @@ docker compose -f docker-compose.yaml logs -f
 
 3) スラッシュコマンド（おすすめ）
 
-- `/issue`: GitHub Issue を作成
-  - 引数: `repo`(owner/repo), `title`, `body`(任意), `labels`(任意), `assignees`(任意)
-  - 例: `/issue repo:owner/repo title:"バグ: 保存できない" labels:#bug #p2 assignees:+alice`
+- `/issue`: GitHub Issue を作成（モーダル入力）
+  - 引数: `repo`(owner/repo), `title`, `labels`(任意), `assignees`(任意), `example`(任意)
+  - `example`: `example/` 配下のテンプレート md 名（オートコンプリート対応。例: `example01`）
+  - 例: `/issue repo:owner/repo title:"バグ: 保存できない" labels:#bug #p2 assignees:+alice example:example01`
 
 - `/issue_help`: `/issue` の使い方を表示（エフェメラルで表示）
 
@@ -102,6 +103,11 @@ docker compose -f docker-compose.yaml logs -f
   - `app/github_api.py`: GitHub API ヘルパー
   - `app/config.py`: 環境変数の読み取りと設定
   - `app/utils.py`: 本文末尾のメタ情報付加などのユーティリティ
+
+### 本文テンプレート（example/）
+- `example/` 配下の `*.md` をテンプレートとして利用できます。
+- `/issue` の `example` 引数でテンプレート名（拡張子なし）を指定すると、モーダル表示時に本文に事前入力されます。
+- 入力欄の制限に合わせ、長文は最大 4000 文字で切り詰められます。
 
 依存: `discord.py`
 
