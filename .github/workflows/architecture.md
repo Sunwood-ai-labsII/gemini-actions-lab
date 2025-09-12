@@ -6,6 +6,7 @@
 
 ### 全体像（Mermaid）
 
+
 ```mermaid
 flowchart TD
   A[Issue/PR/Comment] -->|triggers| B[GitHub Actions]
@@ -43,10 +44,11 @@ flowchart TD
     C7 -->|Create/Update Release| GHAPI
   end
 
-  subgraph Pages
-    C8 --> Pages[GitHub Pages]
+  subgraph Static Site
+    C8 --> GHPages[GitHub Pages]
   end
 ```
+
 
 ### 目的
 - Issue/PR 由来のチャットオペレーションで Gemini を活用
