@@ -6,6 +6,7 @@ from . import config
 from .github_api import http_get, http_post
 from .parser import parse_labels_input, parse_assignees_input
 from .utils import build_body_with_footer
+from .store import recent_repos, remember_repo
 from pathlib import Path
 
 
@@ -96,6 +97,7 @@ class IssueModal(discord.ui.Modal, title='GitHub Issue 作成'):
         if status in (200, 201):
             issue_url = data.get("html_url", "")
             number = data.get("number", "?")
+            remember_repo(self.repo)
             await interaction.followup.send(f"Issueを作成しました: #{number} {issue_url}")
             return
 
@@ -112,6 +114,7 @@ class IssueModal(discord.ui.Modal, title='GitHub Issue 作成'):
             if status2 in (200, 201):
                 issue_url = data2.get("html_url", "")
                 number = data2.get("number", "?")
+                remember_repo(self.repo)
                 await interaction.followup.send(
                     f"Issueを作成しました: #{number} {issue_url}\n（注意: 一部アサインに失敗したため、アサインなしで作成しました）"
                 )
@@ -154,6 +157,14 @@ def setup_commands(bot: discord.Client):
             body_default=body_default,
         )
         await interaction.response.send_modal(modal)
+
+    # オートコンプリート: repo パラメータ（最近使ったリポジトリ）
+    @issue_modal.autocomplete("repo")
+    async def issue_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
 
     # オートコンプリート: example パラメータ（example/ 配下の md ファイル）
     @issue_modal.autocomplete("example")
@@ -210,6 +221,7 @@ def setup_commands(bot: discord.Client):
         if status in (200, 201):
             issue_url = data.get("html_url", "")
             number = data.get("number", "?")
+            remember_repo(repo)
             await interaction.followup.send(f"Issueを作成しました: #{number} {issue_url}")
             return
 
@@ -226,6 +238,7 @@ def setup_commands(bot: discord.Client):
             if status2 in (200, 201):
                 issue_url = data2.get("html_url", "")
                 number = data2.get("number", "?")
+                remember_repo(repo)
                 await interaction.followup.send(
                     f"Issueを作成しました: #{number} {issue_url}\n（注意: 一部アサインに失敗したため、アサインなしで作成しました）"
                 )
@@ -304,6 +317,7 @@ def setup_commands(bot: discord.Client):
         payload = {"ref": f"refs/tags/{tag}", "sha": sha}
         st3, body3 = http_post(f"{config.GITHUB_API}/repos/{repo}/git/refs", config.GITHUB_TOKEN, payload)
         if st3 in (200, 201):
+            remember_repo(repo)
             await interaction.followup.send(
                 f"タグを作成しました: {repo} {target_branch}@{sha[:7]} → {tag}"
             )
@@ -314,4 +328,20 @@ def setup_commands(bot: discord.Client):
             await interaction.followup.send(f"作成失敗: タグ '{tag}' は既に存在します")
             return
 
+    # オートコンプリート: issue_quick の repo
+    @issue_quick.autocomplete("repo")
+    async def issue_quick_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
         await interaction.followup.send(f"作成失敗: {st3}\n{(body3 or '')[:800]}")
+
+    # オートコンプリート: tag_latest の repo
+    @tag_latest.autocomplete("repo")
+    async def tag_latest_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
