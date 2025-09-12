@@ -6,6 +6,7 @@ from . import config
 from .github_api import http_post
 from .parser import parse_legacy_command
 from .utils import build_body_with_footer
+from .store import remember_repo
 
 
 class Bot(discord.Client):
@@ -64,6 +65,7 @@ class Bot(discord.Client):
         if status in (200, 201):
             issue_url = data.get("html_url", "")
             number = data.get("number", "?")
+            remember_repo(repo)
             await message.reply(f"Issueを作成しました: #{number} {issue_url}", mention_author=False)
             return
 
@@ -88,6 +90,7 @@ class Bot(discord.Client):
                     issue_url = data2.get("html_url", "")
                     number = data2.get("number", "?")
                     invalid_list = ", ".join(map(str, invalid_assignees)) if isinstance(invalid_assignees, list) else str(invalid_assignees)
+                    remember_repo(repo)
                     await message.reply(
                         f"Issueを作成しました: #{number} {issue_url}\n（注意: 次のユーザーはアサインできませんでした → {invalid_list}）",
                         mention_author=False,
