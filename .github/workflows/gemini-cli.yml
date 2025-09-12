@@ -76,7 +76,7 @@ jobs:
       github.event_name == 'issues' && github.event.action == 'opened' &&
       contains(github.event.issue.body, '@gemini-cli')
 
-          timeout-minutes: 10
+    timeout-minutes: 10
     runs-on: 'ubuntu-latest'
     steps:
       - name: 'Debug Event Information'
@@ -150,7 +150,7 @@ jobs:
           ${{  steps.get_context.outputs.is_pr == 'true' }}
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
-          token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          token: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           repository: '${{ github.repository }}'
           ref: 'refs/pull/${{ steps.get_context.outputs.issue_number }}/head'
           fetch-depth: 0
@@ -160,14 +160,14 @@ jobs:
           ${{  steps.get_context.outputs.is_pr == 'false' }}
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
-          token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          token: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           repository: '${{ github.repository }}'
           fetch-depth: 0
 
       - name: 'Acknowledge request'
         env:
           GITHUB_ACTOR: '${{ github.actor }}'
-          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           ISSUE_NUMBER: '${{ steps.get_context.outputs.issue_number }}'
           REPOSITORY: '${{ github.repository }}'
           REQUEST_TYPE: '${{ steps.get_context.outputs.request_type }}'
@@ -183,7 +183,7 @@ jobs:
       - name: 'Get description'
         id: 'get_description'
         env:
-          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           IS_PR: '${{ steps.get_context.outputs.is_pr }}'
           ISSUE_NUMBER: '${{ steps.get_context.outputs.issue_number }}'
         run: |-
@@ -202,7 +202,7 @@ jobs:
       - name: 'Get comments'
         id: 'get_comments'
         env:
-          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           IS_PR: '${{ steps.get_context.outputs.is_pr }}'
           ISSUE_NUMBER: '${{ steps.get_context.outputs.issue_number }}'
         run: |-
@@ -235,16 +235,18 @@ jobs:
             echo "Prompt template not found: ${TEMPLATE_PATH}" >&2
             exit 1
           fi
-          # Safe variable substitution without executing content
-          EXPANDED=$(sed \
-            -e "s|\\$\\{REPOSITORY\\}|${REPOSITORY}|g" \
-            -e "s|\\$\\{EVENT_NAME\\}|${EVENT_NAME}|g" \
-            -e "s|\\$\\{ISSUE_NUMBER\\}|${ISSUE_NUMBER}|g" \
-            -e "s|\\$\\{IS_PR\\}|${IS_PR}|g" \
-            -e "s|\\$\\{DESCRIPTION\\}|${DESCRIPTION}|g" \
-            -e "s|\\$\\{COMMENTS\\}|${COMMENTS}|g" \
-            -e "s|\\$\\{USER_REQUEST\\}|${USER_REQUEST}|g" \
-            "${TEMPLATE_PATH}")
+
+          # sedの代わりにperlを使用して、改行を含む変数を安全に置換
+          EXPANDED=$(perl -p -e '
+            s/\$\{REPOSITORY\}/$ENV{REPOSITORY}/g;
+            s/\$\{EVENT_NAME\}/$ENV{EVENT_NAME}/g;
+            s/\$\{ISSUE_NUMBER\}/$ENV{ISSUE_NUMBER}/g;
+            s/\$\{IS_PR\}/$ENV{IS_PR}/g;
+            s/\$\{DESCRIPTION\}/$ENV{DESCRIPTION}/g;
+            s/\$\{COMMENTS\}/$ENV{COMMENTS}/g;
+            s/\$\{USER_REQUEST\}/$ENV{USER_REQUEST}/g;
+          ' "${TEMPLATE_PATH}")
+
           {
             echo "prompt<<EOF"
             echo "${EXPANDED}"
@@ -255,7 +257,7 @@ jobs:
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0'
         env:
-          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: '${{ steps.generate_token.outputs.token || secrets.GH_PAT }}'
           REPOSITORY: '${{ github.repository }}'
           USER_REQUEST: '${{ steps.get_context.outputs.user_request }}'
           ISSUE_NUMBER: '${{ steps.get_context.outputs.issue_number }}'
