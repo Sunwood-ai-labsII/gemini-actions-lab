@@ -13,3 +13,5 @@ node_modules/
 dist/
 build/
 
+discord-issue-bot/data/history.json
+discord-issue-bot/uv.lock
