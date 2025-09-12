@@ -33,8 +33,8 @@ docker compose -f docker-compose.yaml logs -f
 
 - `/issue`: GitHub Issue を作成（モーダル入力）
   - 引数: `repo`(owner/repo), `title`, `labels`(任意), `assignees`(任意), `example`(任意)
-  - `example`: `example/` 配下のテンプレート md 名（オートコンプリート対応。例: `example01`）
-  - 例: `/issue repo:owner/repo title:"バグ: 保存できない" labels:#bug #p2 assignees:+alice example:example01`
+  - `example`: `example/` 配下のテンプレート md 名（オートコンプリート対応。例: `create_todo_app`）
+  - 例: `/issue repo:owner/repo title:"バグ: 保存できない" labels:#bug #p2 assignees:+alice example:create_todo_app`
 
 - `/issue_help`: `/issue` の使い方を表示（エフェメラルで表示）
 
