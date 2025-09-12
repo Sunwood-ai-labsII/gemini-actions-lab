@@ -30,7 +30,7 @@
 
 ## 🤖 ワークフロー概要
 
-このリポジトリには、以下のGitHub Actionsワークフローが含まれています（詳細は `.github/workflows/architecture.md` を参照）：
+このリポジトリには、以下のGitHub Actionsワークフローが含まれています（詳細は [.github/workflows/architecture.md](.github/workflows/architecture.md) を参照）：
 
 - `gemini-cli.yml`: 英語CLI。Issue/PR/コメント/手動でAIコマンドを実行
 - `gemini-jp-cli.yml`: 日本語CLI。Issue/PR/コメント/手動でAIコマンドを実行
@@ -43,12 +43,12 @@
 - `static-site.yml`: リポジトリ内容をGitHub Pagesに公開
 - `sync-to-report-gh.yml`: 旧テンプレ（現状は参考用）
 
-ワークフローの構成・相互関係・実装詳細は、`.github/workflows/architecture.md` に集約しています。
+ワークフローの構成・相互関係・実装詳細は、[.github/workflows/architecture.md](.github/workflows/architecture.md) に集約しています。
 
 ---
 
 ## 🏗️ アーキテクチャ
-アーキテクチャ図やワークフローの詳細な説明は、`.github/workflows/architecture.md` を参照してください。
+アーキテクチャ図やワークフローの詳細な説明は、[.github/workflows/architecture.md](.github/workflows/architecture.md) を参照してください。
 
 ### 💬 Discord Issue Bot（任意）
 - Discord から GitHub Issue を作成する最小ボット
