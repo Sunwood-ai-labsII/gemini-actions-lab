@@ -8,6 +8,9 @@
 - テキストコマンド: `!issue ...`（既存方式）
 - スラッシュコマンド: `/issue`, `/issue_help`, `/tag_latest`（推奨）
 
+補助機能:
+- 最近使った `owner/repo` を自動記憶し、`repo` 引数でオートコンプリート候補に表示します。
+
 必要な環境変数は 2 つだけ:
 - `DISCORD_BOT_TOKEN`
 - `GITHUB_TOKEN`（プライベートリポの場合は `repo` 権限推奨）
@@ -45,6 +48,7 @@ docker compose -f docker-compose.yaml logs -f
 ヒント:
 - グローバルコマンドの反映には最大1時間かかることがあります。即時反映したい場合は環境変数 `DISCORD_GUILD_ID` を設定すると、そのギルドへスラッシュコマンドを即時同期します。
   - 例: `.env` に `DISCORD_GUILD_ID=123456789012345678` を追加
+- `repo` 引数は直近で使ったリポジトリから補完できます（入力中に候補が表示されます）。
 
 4) テキストコマンド（レガシー互換）
 
@@ -112,6 +116,16 @@ docker compose -f docker-compose.yaml logs -f
 依存: `discord.py`
 
 ビルド: `Dockerfile`（uv インストール → `uv sync` → `uv run bot.py`）
+
+### 任意設定（履歴の保存先）
+- `DISCORD_ISSUE_BOT_HISTORY`: 最近使ったリポジトリの保存先ファイルパス。
+  - 既定: `/data/history.json`（コンテナ内; ホストでは `discord-issue-bot/data/history.json`）
+  - 例: `.env` に `DISCORD_ISSUE_BOT_HISTORY=/data/history.json`
+
+### データ永続化（おすすめ）
+- `docker-compose.yaml` で `./data:/data` をマウント済みです。
+- 既定の保存先は `/data/history.json` に変更しました（コンテナ内パス）。
+- ホスト側には `discord-issue-bot/data/history.json` として保存されます。
 
 ## Discord 設定（特権インテント）
 - 本ボットはメッセージ本文を読むため、Discord の「Message Content Intent（特権インテント）」が必要です。
