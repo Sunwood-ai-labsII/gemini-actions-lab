@@ -1,0 +1,10 @@
+{
+  "generation_date": "2025-09-10T15:45:56Z",
+  "prompt": "ロボットが料理をしている",
+  "model": "imagen-4",
+  "num_images": 1,
+  "aspect_ratio": "1:1",
+  "seed": "",
+  "workflow_run": "1",
+  "commit_sha": "c49f1ea3f5488e30583de0dd13ec62663ee432c9"
+}

@@ -2,272 +2,136 @@ name: '🏷️ Gemini Automated Issue Triage'
 
 on:
   issues:
-    types:
-      - 'opened'
-      - 'reopened'
+    types: [opened, reopened]
   workflow_dispatch:
     inputs:
       issue_number:
         description: 'issue number to triage'
         required: true
-        type: 'number'
-
-concurrency:
-  group: '${{ github.workflow }}-${{ github.event.issue.number || github.event.inputs.issue_number }}'
-  cancel-in-progress: true
-
-defaults:
-  run:
-    shell: 'bash'
+        type: number
 
 permissions:
-  contents: 'read'
-  id-token: 'write'
-  issues: 'write'
-  statuses: 'write'
+  contents: read
+  issues: write
+  id-token: write
 
 jobs:
-  triage-issue:
-    if: |-
-      github.event_name == 'issues' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'issue_comment' &&
-        contains(github.event.comment.body, '@gemini-cli /triage') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
-      )
-    timeout-minutes: 5
-    runs-on: 'ubuntu-latest'
+  triage:
+    runs-on: ubuntu-latest
     steps:
-      - name: 'Checkout repository'
-        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
-
-      - name: 'Generate GitHub App Token'
-        id: 'generate_token'
-        if: |-
-          ${{ vars.APP_ID }}
-        uses: 'actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e' # ratchet:actions/create-github-app-token@v2
+      - name: Get Issue Info
+        id: issue
+        env:
+          INPUT_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+        uses: actions/github-script@v7
         with:
-          app-id: '${{ vars.APP_ID }}'
-          private-key: '${{ secrets.APP_PRIVATE_KEY }}'
-
-      - name: 'Get Issue Information'
-        id: 'get_issue'
-        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
-        with:
-          github-token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
           script: |
-            let issueNumber, issueTitle, issueBody;
-            
+            let issue;
             if (context.eventName === 'workflow_dispatch') {
-              // 手動実行の場合はinputから取得
-              issueNumber = parseInt('${{ github.event.inputs.issue_number }}');
-              console.log(`Manual dispatch for issue #${issueNumber}`);
-              
-              // APIでissue情報を取得
-              const { data: issue } = await github.rest.issues.get({
+              const issueNumber = parseInt(process.env.INPUT_ISSUE_NUMBER);
+              const { data } = await github.rest.issues.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber
               });
-              
-              issueTitle = issue.title;
-              issueBody = issue.body || '';
+              issue = data;
             } else {
-              // 通常のイベントの場合
-              issueNumber = context.payload.issue.number;
-              issueTitle = context.payload.issue.title;
-              issueBody = context.payload.issue.body || '';
+              issue = context.payload.issue;
             }
-            
-            console.log(`Event name: ${context.eventName}`);
-            console.log(`Issue number: ${issueNumber}`);
-            console.log(`Issue title: '${issueTitle}'`);
-            console.log(`Issue body length: ${issueBody.length}`);
-            console.log(`Issue body preview: '${issueBody.substring(0, 200)}${issueBody.length > 200 ? '...' : ''}'`);
-            
-            // 後続のステップで使用するために出力
-            core.setOutput('issue_number', issueNumber);
-            core.setOutput('issue_title', issueTitle);
-            core.setOutput('issue_body', issueBody);
+            core.setOutput('number', issue.number);
+            core.setOutput('title', issue.title || '');
+            core.setOutput('body', issue.body || '');
 
-      - name: 'Get Repository Labels'
-        id: 'get_labels'
-        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
+      - name: Get Labels
+        id: labels
+        uses: actions/github-script@v7
         with:
-          github-token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
-          script: |-
-            const { data: labels } = await github.rest.issues.listLabelsForRepo({
+          script: |
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, {
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.repo
             });
-            const labelNames = labels.map(label => label.name);
-            core.setOutput('available_labels', labelNames.join(','));
-            core.info(`Found ${labelNames.length} labels: ${labelNames.join(', ')}`);
-            return labelNames;
+            const names = labels.map(l => l.name);
+            core.setOutput('available', names.join(','));
+            return names.join(',');
 
-      - name: 'Run Gemini Issue Analysis'
-        uses: 'google-github-actions/run-gemini-cli@v0'
-        id: 'gemini_issue_analysis'
-        env:
-          GITHUB_TOKEN: '' # Do not pass any auth token here since this runs on untrusted inputs
-          ISSUE_TITLE: '${{ steps.get_issue.outputs.issue_title }}'
-          ISSUE_BODY: '${{ steps.get_issue.outputs.issue_body }}'
-          ISSUE_NUMBER: '${{ steps.get_issue.outputs.issue_number }}'
-          REPOSITORY: '${{ github.repository }}'
-          AVAILABLE_LABELS: '${{ steps.get_labels.outputs.available_labels }}'
+      - name: Analyze with Gemini
+        id: gemini
+        uses: google-github-actions/run-gemini-cli@v0
         with:
-          gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
-          gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
-          gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
-          gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
-          gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
-          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
-          use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
-          use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
-          settings: |-
-            {
-              "debug": true,
-              "maxSessionTurns": 25,
-              "coreTools": [],
-              "telemetry": {
-                "enabled": false,
-                "target": "gcp"
-              }
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          # ← ここは ${{ ... }} で式展開するのがポイント
+          prompt: |
+            You are a GitHub issue triage assistant.
+            Issue Title: ${{ steps.issue.outputs.title }}
+            Issue Body:
+            ---
+            ${{ steps.issue.outputs.body }}
+            ---
+            Available Labels (comma-separated): ${{ steps.labels.outputs.available }}
+
+            Task: Choose the MOST relevant labels from the available list only.
+            Return EXACTLY this XML (no prose, no markdown):
+            <labels>
+            <label>label-1</label>
+            <label>label-2</label>
+            </labels>
+
+
+      - name: Apply Labels
+        uses: actions/github-script@v7
+        env:
+          GEMINI_OUTPUT: ${{ steps.gemini.outputs.text || steps.gemini.outputs.summary }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        with:
+          script: |
+            const raw = process.env.GEMINI_OUTPUT || '';
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
+      
+            console.log('Gemini output:', raw);
+      
+            let labels = [];
+            const matches = raw.match(/<label>(.*?)<\/label>/gis);
+            if (matches) {
+              labels = matches
+                .map(m => m.replace(/<\/?label>/gi, '').trim())
+                .filter(Boolean);
+              console.log('Extracted labels from XML:', labels);
+            } else {
+              throw new Error('❌ Gemini output に <label> タグが見つかりませんでした');
             }
-          prompt: |-
-            You are an issue triage assistant. Analyze the GitHub issue and suggest appropriate labels.
-
-            Repository: ${REPOSITORY}
-            Issue Number: ${ISSUE_NUMBER}
-            Issue Title: "${ISSUE_TITLE}"
-            Issue Body: "${ISSUE_BODY}"
-            Available Labels: ${AVAILABLE_LABELS}
-
-            Please analyze this issue carefully and suggest appropriate labels from the available labels list.
-            
-            Important: Respond with ONLY the JSON object, no additional text or explanations before or after.
-
-            Constraints:
-            - Do NOT run any shell or external commands; use only the provided environment variables
-            - Do NOT attempt to execute `gh label list` or call the GitHub API to fetch labels. The available labels are already provided in "${AVAILABLE_LABELS}".
-
-            Output format (JSON only):
-            {"labels_to_set": ["label1", "label2"], "explanation": "reasoning for these labels"}
-
-            If the issue content appears to be empty or placeholder text, still try to categorize it based on any available information.
-
-      - name: 'Apply Labels to Issue'
-        if: |-
-          ${{ steps.gemini_issue_analysis.outputs.summary != '' }}
-        env:
-          REPOSITORY: '${{ github.repository }}'
-          ISSUE_NUMBER: '${{ steps.get_issue.outputs.issue_number }}'
-          LABELS_OUTPUT: '${{ steps.gemini_issue_analysis.outputs.summary }}'
-        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
-        with:
-          github-token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
-          script: |-
-            // Strip code block markers if present and extract JSON
-            const rawLabels = process.env.LABELS_OUTPUT;
-            core.info(`Raw labels output: ${rawLabels}`);
-            
-            let parsedLabels;
-            try {
-              // 改良されたJSON抽出ロジック
-              let jsonString = rawLabels;
-              
-              // 1. ```json ``` ブロックを抽出
-              const jsonBlockMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
-              if (jsonBlockMatch) {
-                jsonString = jsonBlockMatch[1].trim();
-                core.info(`Extracted JSON from json code block: ${jsonString}`);
-              } else {
-                // 2. ``` ``` ブロックを抽出（json指定なし）
-                const codeBlockMatch = jsonString.match(/```\s*([\s\S]*?)\s*```/);
-                if (codeBlockMatch) {
-                  jsonString = codeBlockMatch[1].trim();
-                  core.info(`Extracted JSON from code block: ${jsonString}`);
+      
+            // ラベルごとに存在チェック → 無ければ作成
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                });
+                console.log(`Label "${label}" already exists`);
+              } catch (err) {
+                if (err.status === 404) {
+                  console.log(`Label "${label}" does not exist. Creating...`);
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label,
+                    color: 'ededed',   // デフォルト色。必要なら調整
+                    description: `Created automatically by Gemini triage`,
+                  });
                 } else {
-                  // 3. { で始まって } で終わる部分を抽出
-                  const jsonObjectMatch = jsonString.match(/(\{[\s\S]*\})/);
-                  if (jsonObjectMatch) {
-                    jsonString = jsonObjectMatch[1].trim();
-                    core.info(`Extracted JSON object: ${jsonString}`);
-                  } else {
-                    // 4. [ で始まって ] で終わる部分を抽出（配列の場合）
-                    const jsonArrayMatch = jsonString.match(/(\[[\s\S]*\])/);
-                    if (jsonArrayMatch) {
-                      // 配列が返された場合は、最初の要素を使用（単一issue用）
-                      const arrayData = JSON.parse(jsonArrayMatch[1].trim());
-                      if (Array.isArray(arrayData) && arrayData.length > 0) {
-                        // 現在のissue番号に一致するものを探す
-                        const currentIssueNumber = parseInt(process.env.ISSUE_NUMBER);
-                        const matchingIssue = arrayData.find(item => item.issue_number === currentIssueNumber);
-                        if (matchingIssue) {
-                          parsedLabels = {
-                            labels_to_set: matchingIssue.labels_to_set,
-                            explanation: matchingIssue.explanation
-                          };
-                        } else {
-                          // 一致するissue番号がない場合は最初の要素を使用
-                          const firstItem = arrayData[0];
-                          parsedLabels = {
-                            labels_to_set: firstItem.labels_to_set,
-                            explanation: firstItem.explanation
-                          };
-                        }
-                        core.info(`Successfully parsed from array: ${JSON.stringify(parsedLabels)}`);
-                      }
-                    } else {
-                      // 5. フォールバック: そのままパース
-                      core.info(`Using fallback - trying to parse as-is`);
-                    }
-                  }
+                  throw err;
                 }
               }
-              
-              // まだparsedLabelsが設定されていない場合、通常のJSONパースを試行
-              if (!parsedLabels) {
-                parsedLabels = JSON.parse(jsonString);
-                core.info(`Successfully parsed labels JSON: ${JSON.stringify(parsedLabels)}`);
-              }
-            } catch (err) {
-              core.setFailed(`Failed to parse labels JSON from Gemini output: ${err.message}\nRaw output: ${rawLabels}`);
-              return;
             }
-
-            const issueNumber = parseInt(process.env.ISSUE_NUMBER);
-
-            // Set labels based on triage result
-            if (parsedLabels.labels_to_set && parsedLabels.labels_to_set.length > 0) {
-              await github.rest.issues.setLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                labels: parsedLabels.labels_to_set
-              });
-              const explanation = parsedLabels.explanation ? ` - ${parsedLabels.explanation}` : '';
-              core.info(`Successfully set labels for #${issueNumber}: ${parsedLabels.labels_to_set.join(', ')}${explanation}`);
-            } else {
-              // If no labels to set, leave the issue as is
-              const explanation = parsedLabels.explanation ? ` - ${parsedLabels.explanation}` : '';
-              core.info(`No labels to set for #${issueNumber}, leaving as is${explanation}`);
-            }
-
-      - name: 'Post Issue Analysis Failure Comment'
-        if: |-
-          ${{ failure() && steps.gemini_issue_analysis.outcome == 'failure' }}
-        env:
-          ISSUE_NUMBER: '${{ steps.get_issue.outputs.issue_number }}'
-          RUN_URL: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
-        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
-        with:
-          github-token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
-          script: |-
-            github.rest.issues.createComment({
+      
+            // すべて存在するはずなのでまとめて適用
+            await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: parseInt(process.env.ISSUE_NUMBER),
-              body: `There is a problem with the Gemini CLI issue triaging. Please check the [action logs](${process.env.RUN_URL}) for details.`
-            })
+              issue_number: issueNumber,
+              labels,
+            });
+            console.log(`✅ Applied labels: ${labels.join(', ')}`);
+
