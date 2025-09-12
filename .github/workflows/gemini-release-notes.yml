@@ -129,13 +129,13 @@ jobs:
           echo "Display name: ${REPO_DISPLAY}"
           echo "Tag: ${TAG}"
           
-          # Replace placeholders:
+          # Replace placeholders using environment variables for Perl
           # - v0.0.0 -> actual tag (e.g., v0.2.0)
           # - GEMINI ACTIONS LAB -> transformed repository name
-          PROMPT=$(perl -pe "
+          PROMPT=$(TAG="${TAG}" REPO_DISPLAY="${REPO_DISPLAY}" perl -pe '
             s/\bv0\.0\.0\b/\Q$ENV{TAG}\E/g;
             s/\bGEMINI ACTIONS LAB\b/\Q$ENV{REPO_DISPLAY}\E/g;
-          " "${TEMPLATE}")
+          ' "${TEMPLATE}")
           
           {
             echo 'image_prompt<<EOF'
