@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👶 赤ちゃん見守りアプリ</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 {
+            color: #ff69b4; /* ギャルピンク💖 */
+            text-shadow: 2px 2px 4px #ccc;
+        }
+        #video-container {
+            border: 5px solid #ff69b4;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            background-color: #fff;
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 640px;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 5px;
+        }
+        #controls button {
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #controls button:hover {
+            transform: scale(1.1);
+            background-color: #ff85c1;
+        }
+        #controls button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #status {
+            font-weight: bold;
+            color: #ff69b4;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>👶 赤ちゃん見守りアプリ 🍼</h1>
+
+    <div id="video-container">
+        <video id="camera-feed" autoplay playsinline muted></video>
+    </div>
+
+    <div id="controls">
+        <button id="connect-btn">カメラに接続 ✨</button>
+        <button id="disconnect-btn" disabled>切断 💔</button>
+    </div>
+
+    <div id="status-container">
+        <p>ステータス: <span id="status">待機中...</span></p>
+    </div>
+
+    <script>
+        // DOM要素をゲットしておくよん
+        const videoElement = document.getElementById('camera-feed');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const statusElement = document.getElementById('status');
+
+        let stream = null; // ストリームを入れとく変数ね
+
+        // 「接続」ボタンが押されたときの処理
+        connectBtn.addEventListener('click', async () => {
+            console.log('接続ボタンクリック！');
+            // まずはカメラとマイクを使えるか確認するよ
+            try {
+                // これマジ大事🔥 ユーザーに許可を求めるやつ
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true,
+                });
+
+                // 成功したらビデオに映像を流す！
+                videoElement.srcObject = stream;
+                statusElement.textContent = '接続中 🎥';
+                
+                // ボタンの状態を切り替えるよ
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                console.log('カメラ接続成功！');
+
+            } catch (error) {
+                // エラーが出たらコンソールに出す！ドンマイ！
+                console.error('カメラにアクセスできなかったぴえん🥺', error);
+                statusElement.textContent = 'エラー発生 😭';
+                alert('カメラへのアクセスが許可されなかったか、カメラがありません。設定を確認してください。');
+            }
+        });
+
+        // 「切断」ボタンが押されたときの処理
+        disconnectBtn.addEventListener('click', () => {
+            console.log('切断ボタンクリック！');
+            if (stream) {
+                // ストリームの全トラックを止める！バイバイ！
+                stream.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
+                statusElement.textContent = '切断しました 👋';
+
+                // ボタンの状態を元に戻す
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                stream = null; // 変数も空にしとく
+                console.log('ストリームを停止したよ');
+            }
+        });
+    </script>
+
+</body>
+</html>
