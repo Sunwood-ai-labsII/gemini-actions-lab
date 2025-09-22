@@ -367,6 +367,8 @@ jobs:
           DIFF_STATS: "${{ steps.ctx.outputs.diff_stats }}"
           DIFF_CONTENT: "${{ steps.ctx.outputs.diff_content }}"
           RELEASE_NOTES: "${{ steps.gemini.outputs.summary }}"
+          HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
+          HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
         with:
           gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
           gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
@@ -385,6 +387,8 @@ jobs:
             - リリースタグ: ${{ steps.ctx.outputs.tag }}
             - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
             - 比較URL: ${{ steps.ctx.outputs.compare_url }}
+            - ヘッダー画像URL: ${{ steps.header.outputs.raw_url }}
+            - ヘッダー画像ファイル名: ${{ steps.header.outputs.image_name }}
 
             # 生成済みリリースノート
             ${{ steps.gemini.outputs.summary }}
@@ -410,7 +414,8 @@ jobs:
             - **コード差分を分析し、技術的な変更点を詳しく説明する**
             - **開発者向けに具体的で実用的な内容にする**
             - **リリースノートの内容をベースに、より詳細で読みやすい技術記事として展開する**
-            
+            - **ヘッダー画像URL（${{ steps.header.outputs.raw_url }}）があれば、frontmatterの直後にMarkdownで表示する**
+
             # 必須フォーマット
             ```
             ---
@@ -462,6 +467,8 @@ jobs:
             - 出力は完全なMarkdownファイル形式で、余計な前置きや後書きは不要
             - topicsには実際の技術スタックに基づいた適切なキーワードを設定する
             - emojiはプロジェクトの性質に応じて適切なものを選択する
+            - 記事全体をコードブロックで囲まず、Markdown本文として出力する
+            - ヘッダー画像URLが空でない場合は、frontmatterの直後に`![${{ steps.header.outputs.image_name }}](${{ steps.header.outputs.raw_url }})`形式で記載する
 
       - name: Checkout Zenn repository
         uses: actions/checkout@v4
@@ -476,18 +483,52 @@ jobs:
           REPOSITORY: "${{ github.repository }}"
           ZENN_CONTENT: "${{ steps.zenn_article.outputs.summary }}"
           GITHUB_TOKEN: "${{ secrets.ZENN_REPO_TOKEN }}"
+          HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
+          HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
         run: |
           set -euo pipefail
-          
+
           # リポジトリ名からファイル名を生成
           REPO_NAME="${REPOSITORY##*/}"  # Remove owner/ prefix
           TAG_CLEAN="${TAG#v}"  # Remove 'v' prefix if present
           TIMESTAMP=$(date +%Y%m%d)
-          
-          # ファイル名を生成: YYYYMMDD-reponame-version-release.md
-          FILENAME="${TIMESTAMP}-${REPO_NAME,,}-${TAG_CLEAN}-release.md"  # ,,で小文字に変換
+
+          # ファイル名（拡張子を除く）はZenn記事のslugとなるため、制約に合わせて生成
+          RAW_SLUG="${TIMESTAMP}-${REPO_NAME}-${TAG_CLEAN}-release"
+          RAW_SLUG="${RAW_SLUG,,}"  # 小文字化
+
+          # 使用可能文字（a-z0-9_-）以外をハイフンに置換し、ハイフン・アンダースコアの連続を整理
+          SLUG=$(echo "${RAW_SLUG}" \
+            | sed 's/[^a-z0-9_-]/-/g' \
+            | sed -E 's/-{2,}/-/g' \
+            | sed -E 's/_{2,}/_/g' \
+            | sed -E 's/^[-_]+//; s/[-_]+$//')
+
+          # 生成結果が空の場合は日付ベースのslugを使用
+          if [[ -z "${SLUG}" ]]; then
+            SLUG="${TIMESTAMP}-release"
+          fi
+
+          # 最大文字数（50文字）を超える場合はトリミングし、末尾のハイフン/アンダースコアを除去
+          if [[ ${#SLUG} -gt 50 ]]; then
+            SLUG="${SLUG:0:50}"
+            SLUG=$(echo "${SLUG}" | sed -E 's/[-_]+$//')
+          fi
+
+          # 最小文字数（12文字）に満たない場合は許容文字でパディング
+          while [[ ${#SLUG} -lt 12 ]]; do
+            SLUG="${SLUG}x"
+          done
+
+          # 最終的なslugが制約を満たすか検証
+          if [[ ! "${SLUG}" =~ ^[a-z0-9_-]{12,50}$ ]]; then
+            echo "生成されたslug '${SLUG}' が制約を満たしません" >&2
+            exit 1
+          fi
+
+          FILENAME="${SLUG}.md"
           FILEPATH="zenn-repo/articles/${FILENAME}"
-          
+
           echo "Creating Zenn article: ${FILEPATH}"
           
           # articlesディレクトリが存在しない場合は作成
@@ -497,7 +538,47 @@ jobs:
           cat > "${FILEPATH}" << 'EOF'
           ${{ steps.zenn_article.outputs.summary }}
           EOF
-          
+
+          if [[ -n "${HEADER_IMAGE_URL}" && -n "${HEADER_IMAGE_NAME}" ]]; then
+            FILEPATH="${FILEPATH}" HEADER_IMAGE_URL="${HEADER_IMAGE_URL}" HEADER_IMAGE_NAME="${HEADER_IMAGE_NAME}" python3 - <<'PY'
+import os
+
+file_path = os.environ["FILEPATH"]
+header_url = os.environ["HEADER_IMAGE_URL"].strip()
+header_name = os.environ["HEADER_IMAGE_NAME"].strip()
+
+if not header_url or not header_name:
+    raise SystemExit(0)
+
+with open(file_path, "r", encoding="utf-8") as f:
+    lines = f.readlines()
+
+if any(header_url in line for line in lines):
+    print(f"Header image already present in {file_path}")
+    raise SystemExit(0)
+
+insert_at = 0
+separator_seen = 0
+for idx, line in enumerate(lines):
+    if line.strip() == "---":
+        separator_seen += 1
+        if separator_seen == 2:
+            insert_at = idx + 1
+            break
+
+if separator_seen < 2:
+    insert_at = 0
+
+image_block = [f"![{header_name}]({header_url})\n", "\n"]
+lines[insert_at:insert_at] = image_block
+
+with open(file_path, "w", encoding="utf-8") as f:
+    f.writelines(lines)
+
+print(f"Inserted header image into {file_path}")
+PY
+          fi
+
           echo "✅ Created Zenn article: ${FILENAME}"
           echo "File size: $(wc -c < "${FILEPATH}") bytes"
           
