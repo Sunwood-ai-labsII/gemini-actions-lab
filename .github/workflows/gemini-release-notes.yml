@@ -534,10 +534,44 @@ jobs:
           # articlesディレクトリが存在しない場合は作成
           mkdir -p "zenn-repo/articles"
           
-          # Zenn記事を作成（ヘッダー画像のMarkdown挿入はGeminiの出力に任せる）
-          cat > "${FILEPATH}" << 'EOF'
-          ${{ steps.zenn_article.outputs.summary }}
-          EOF
+          # Zenn記事を作成（ヘッダー画像のMarkdown挿入はGeminiの出力に任せる）。
+          # 生成物がコードフェンスで囲まれている場合は中身のみ抽出する。
+          python3 - <<'PY'
+import os
+import pathlib
+import re
+
+filepath = os.environ["FILEPATH"]
+raw_content = os.environ.get("ZENN_CONTENT", "")
+
+# 正規化（改行コードをLFへ）。
+normalized = raw_content.replace("\r\n", "\n").replace("\r", "\n")
+
+# 先頭の空白を保持したままコードフェンスの有無を判定する。
+leading_len = len(normalized) - len(normalized.lstrip())
+leading = normalized[:leading_len]
+stripped = normalized[leading_len:]
+
+processed = normalized
+mode = "as-is"
+
+match = re.match(r"^```(?:markdown)?\s*\n?", stripped, flags=re.IGNORECASE)
+if match:
+    body = stripped[match.end():]
+    lines = body.splitlines(keepends=True)
+    for idx in range(len(lines) - 1, -1, -1):
+        if lines[idx].strip() == "```":
+            del lines[idx]
+            break
+    processed = leading + "".join(lines)
+    mode = "removed outer fence"
+
+if not processed.endswith("\n"):
+    processed += "\n"
+
+pathlib.Path(filepath).write_text(processed, encoding="utf-8")
+print(f"Saved Zenn content ({mode}), {len(processed)} characters -> {filepath}")
+PY
 
           echo "✅ Created Zenn article: ${FILENAME}"
           echo "File size: $(wc -c < "${FILEPATH}") bytes"
