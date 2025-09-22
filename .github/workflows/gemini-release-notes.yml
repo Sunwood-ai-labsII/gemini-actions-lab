@@ -360,6 +360,7 @@ jobs:
             { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
           prompt: |
             あなたはZennの技術記事作成のエキスパートです。以下の情報から、リリースノートを元にしたZenn記事を作成してください。
+            
             # コンテキスト
             - リポジトリ: ${{ github.repository }}
             - リリースタグ: ${{ steps.ctx.outputs.tag }}
@@ -367,18 +368,24 @@ jobs:
             - 比較URL: ${{ steps.ctx.outputs.compare_url }}
             - ヘッダー画像URL: ${{ steps.header.outputs.raw_url }}
             - ヘッダー画像ファイル名: ${{ steps.header.outputs.image_name }}
+            
             # 生成済みリリースノート
             ${{ steps.gemini.outputs.summary }}
+            
             # 変更統計
             ${{ steps.ctx.outputs.diff_stats }}
+            
             # コード差分（実際の変更内容）
             ```diff
             ${{ steps.ctx.outputs.diff_content }}
             ```
+            
             # 変更コミット（抜粋）
             ${{ steps.ctx.outputs.commits }}
+            
             # 変更ファイル（抜粋）
             ${{ steps.ctx.outputs.files }}
+            
             # 執筆方針
             - **リポジトリ名からプロジェクト名を推測し、適切なタイトルを作成する**
             - **topics配列には技術スタック、言語、フレームワークなど関連する技術キーワードを4つ程度設定する**
@@ -387,8 +394,11 @@ jobs:
             - **開発者向けに具体的で実用的な内容にする**
             - **リリースノートの内容をベースに、より詳細で読みやすい技術記事として展開する**
             - **ヘッダー画像URL（${{ steps.header.outputs.raw_url }}）があれば、frontmatterの直後にMarkdownで表示する**
-            # 必須フォーマット
-            ```
+            
+            # 出力フォーマット
+            **必ず記事全体を<article>タグで囲んで出力してください：**
+            
+            <article>
             ---
             title: "【リリースノート】[プロジェクト名] ${{ steps.ctx.outputs.tag }} - [主要な変更点を一言で]"
             emoji: "🚀"
@@ -396,34 +406,39 @@ jobs:
             topics: ['技術1', '技術2', '技術3', '技術4']
             published: true
             ---
+            
+            [ヘッダー画像がある場合: ![image_name](image_url)]
+            
             ## はじめに
             [プロジェクトの簡単な説明とリリースの概要]
+            
             ## 主な変更点
             [リリースノートを元にした詳細な説明]
+            
             ## 技術的な詳細
             [コード差分から読み取れる技術的な変更点の詳細]
+            
             ### 新機能
             [新機能の詳細説明]
+            
             ### 改善点
             [改善点の詳細説明]
+            
             ### バグ修正
             [バグ修正の詳細説明]
+            
             ## まとめ
             [今回のリリースのまとめと今後の展望]
+            
             ---
             
             📚 **参考リンク**
-            - [リポジトリ](${{ github.repository }})
+            - [リポジトリ](https://github.com/${{ github.repository }})
             - [比較表示](${{ steps.ctx.outputs.compare_url }})
             - [リリースページ](https://github.com/${{ github.repository }}/releases/tag/${{ steps.ctx.outputs.tag }})
-            ```
-            # 注意事項
-            - frontmatterのYAMLは正確なフォーマットで記述する
-            - 出力は完全なMarkdownファイル形式で、余計な前置きや後書きは不要
-            - topicsには実際の技術スタックに基づいた適切なキーワードを設定する
-            - emojiはプロジェクトの性質に応じて適切なものを選択する
-            - 記事全体をコードブロックで囲まず、Markdown本文として出力する
-            - ヘッダー画像URLが空でない場合は、frontmatterの直後に`![${{ steps.header.outputs.image_name }}](${{ steps.header.outputs.raw_url }})`形式で記載する
+            </article>
+            
+            **重要**: 必ず<article>開始タグから</article>終了タグまでで記事全体を囲んでください。
 
       - name: Checkout Zenn repository
         uses: actions/checkout@v4
@@ -480,46 +495,16 @@ jobs:
           # articlesディレクトリが存在しない場合は作成
           mkdir -p "zenn-repo/articles"
           
-          # Zenn記事を作成（ヘッダー画像のMarkdown挿入はGeminiの出力に任せる）。
-          # 生成物がコードフェンスで囲まれている場合は中身のみ抽出する。
-          python3 -c "
-import os
-import pathlib
-import re
-
-filepath = os.environ['FILEPATH']
-raw_content = os.environ.get('ZENN_CONTENT', '')
-
-# 正規化（改行コードをLFへ）。
-normalized = raw_content.replace('\r\n', '\n').replace('\r', '\n')
-
-# 先頭の空白を保持したままコードフェンスの有無を判定する。
-leading_len = len(normalized) - len(normalized.lstrip())
-leading = normalized[:leading_len]
-stripped = normalized[leading_len:]
-
-processed = normalized
-mode = 'as-is'
-
-match = re.match(r'^```(?:markdown)?\s*\n?', stripped, flags=re.IGNORECASE)
-if match:
-    body = stripped[match.end():]
-    lines = body.splitlines(keepends=True)
-    for idx in range(len(lines) - 1, -1, -1):
-        if lines[idx].strip() == '```':
-            del lines[idx]
-            break
-    processed = leading + ''.join(lines)
-    mode = 'removed outer fence'
-
-if not processed.endswith('\n'):
-    processed += '\n'
-
-pathlib.Path(filepath).write_text(processed, encoding='utf-8')
-print(f'Saved Zenn content ({mode}), {len(processed)} characters -> {filepath}')
-          "
-
-          echo "✅ Created Zenn article: ${FILENAME}"
+          # Zenn記事を作成（<article>タグから中身を抽出）
+          if echo "${ZENN_CONTENT}" | grep -q '<article>'; then
+            # <article>タグが存在する場合は中身を抽出
+            echo "${ZENN_CONTENT}" | perl -0777 -pe 's/.*<article>\s*(.*?)\s*<\/article>.*/\1/s' > "${FILEPATH}"
+            echo "✅ Created Zenn article: ${FILENAME} (extracted from article tags)"
+          else
+            # <article>タグが存在しない場合はそのまま使用
+            echo "${ZENN_CONTENT}" > "${FILEPATH}"
+            echo "✅ Created Zenn article: ${FILENAME} (used as-is)"
+          fi
           echo "File size: $(wc -c < "${FILEPATH}") bytes"
           
           # 出力変数にファイル名を設定
