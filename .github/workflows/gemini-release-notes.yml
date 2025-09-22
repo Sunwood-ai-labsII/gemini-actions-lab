@@ -540,43 +540,41 @@ jobs:
           EOF
 
           if [[ -n "${HEADER_IMAGE_URL}" && -n "${HEADER_IMAGE_NAME}" ]]; then
-            FILEPATH="${FILEPATH}" HEADER_IMAGE_URL="${HEADER_IMAGE_URL}" HEADER_IMAGE_NAME="${HEADER_IMAGE_NAME}" python3 - <<'PY'
-import os
+            FILEPATH="${FILEPATH}" HEADER_IMAGE_URL="${HEADER_IMAGE_URL}" HEADER_IMAGE_NAME="${HEADER_IMAGE_NAME}" python3 -c 'import os, textwrap; exec(textwrap.dedent("""
+            file_path = os.environ["FILEPATH"]
+            header_url = os.environ["HEADER_IMAGE_URL"].strip()
+            header_name = os.environ["HEADER_IMAGE_NAME"].strip()
 
-file_path = os.environ["FILEPATH"]
-header_url = os.environ["HEADER_IMAGE_URL"].strip()
-header_name = os.environ["HEADER_IMAGE_NAME"].strip()
+            if not header_url or not header_name:
+                raise SystemExit(0)
 
-if not header_url or not header_name:
-    raise SystemExit(0)
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
 
-with open(file_path, "r", encoding="utf-8") as f:
-    lines = f.readlines()
+            if any(header_url in line for line in lines):
+                print(f"Header image already present in {file_path}")
+                raise SystemExit(0)
 
-if any(header_url in line for line in lines):
-    print(f"Header image already present in {file_path}")
-    raise SystemExit(0)
+            insert_at = 0
+            separator_seen = 0
+            for idx, line in enumerate(lines):
+                if line.strip() == "---":
+                    separator_seen += 1
+                    if separator_seen == 2:
+                        insert_at = idx + 1
+                        break
 
-insert_at = 0
-separator_seen = 0
-for idx, line in enumerate(lines):
-    if line.strip() == "---":
-        separator_seen += 1
-        if separator_seen == 2:
-            insert_at = idx + 1
-            break
+            if separator_seen < 2:
+                insert_at = 0
 
-if separator_seen < 2:
-    insert_at = 0
+            image_block = [f"![{header_name}]({header_url})\n", "\n"]
+            lines[insert_at:insert_at] = image_block
 
-image_block = [f"![{header_name}]({header_url})\n", "\n"]
-lines[insert_at:insert_at] = image_block
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.writelines(lines)
 
-with open(file_path, "w", encoding="utf-8") as f:
-    f.writelines(lines)
-
-print(f"Inserted header image into {file_path}")
-PY
+            print(f"Inserted header image into {file_path}")
+            """))'
           fi
 
           echo "✅ Created Zenn article: ${FILENAME}"
