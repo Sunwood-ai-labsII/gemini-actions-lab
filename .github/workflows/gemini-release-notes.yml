@@ -498,7 +498,8 @@ jobs:
           # Zenn記事を作成（<article>タグから中身を抽出）
           if echo "${ZENN_CONTENT}" | grep -q '<article>'; then
             # <article>タグが存在する場合は中身を抽出
-            echo "${ZENN_CONTENT}" | perl -0777 -pe 's/.*<article>\s*(.*?)\s*<\/article>.*/\1/s' > "${FILEPATH}"
+            # 最初の<article>から最後の</article>までを抽出（貪欲マッチング）
+            echo "${ZENN_CONTENT}" | perl -0777 -pe 's/^.*?<article>\s*(.*)\s*<\/article>.*$/\1/s' > "${FILEPATH}"
             echo "✅ Created Zenn article: ${FILENAME} (extracted from article tags)"
           else
             # <article>タグが存在しない場合はそのまま使用
