@@ -475,6 +475,7 @@ jobs:
           TAG: "${{ steps.ctx.outputs.tag }}"
           REPOSITORY: "${{ github.repository }}"
           ZENN_CONTENT: "${{ steps.zenn_article.outputs.summary }}"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
           set -euo pipefail
           
@@ -508,6 +509,7 @@ jobs:
         env:
           TAG: "${{ steps.ctx.outputs.tag }}"
           REPOSITORY: "${{ github.repository }}"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
           set -euo pipefail
           cd zenn-repo
