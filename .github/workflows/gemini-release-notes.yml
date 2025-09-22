@@ -352,6 +352,182 @@ jobs:
             ---
             比較: ${{ steps.ctx.outputs.compare_url }}
 
+      # 🆕 新規追加: Zenn記事生成ステップ
+      - name: Generate Zenn article with Gemini
+        id: zenn_article
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          REPOSITORY: "${{ github.repository }}"
+          TAG_NAME: "${{ steps.ctx.outputs.tag }}"
+          PREV_TAG: "${{ steps.ctx.outputs.prev_tag }}"
+          COMPARE_URL: "${{ steps.ctx.outputs.compare_url }}"
+          COMMITS: "${{ steps.ctx.outputs.commits }}"
+          CHANGED_FILES: "${{ steps.ctx.outputs.files }}"
+          CONTRIBUTORS: "${{ steps.ctx.outputs.contributors }}"
+          DIFF_STATS: "${{ steps.ctx.outputs.diff_stats }}"
+          DIFF_CONTENT: "${{ steps.ctx.outputs.diff_content }}"
+          RELEASE_NOTES: "${{ steps.gemini.outputs.summary }}"
+        with:
+          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
+          gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
+          gcp_project_id: "${{ vars.GOOGLE_CLOUD_PROJECT }}"
+          gcp_location: "${{ vars.GOOGLE_CLOUD_LOCATION }}"
+          gcp_service_account: "${{ vars.SERVICE_ACCOUNT_EMAIL }}"
+          use_vertex_ai: "${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}"
+          use_gemini_code_assist: "${{ vars.GOOGLE_GENAI_USE_GCA }}"
+          settings: |
+            { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
+          prompt: |
+            あなたはZennの技術記事作成のエキスパートです。以下の情報から、リリースノートを元にしたZenn記事を作成してください。
+
+            # コンテキスト
+            - リポジトリ: ${{ github.repository }}
+            - リリースタグ: ${{ steps.ctx.outputs.tag }}
+            - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
+            - 比較URL: ${{ steps.ctx.outputs.compare_url }}
+
+            # 生成済みリリースノート
+            ${{ steps.gemini.outputs.summary }}
+
+            # 変更統計
+            ${{ steps.ctx.outputs.diff_stats }}
+
+            # コード差分（実際の変更内容）
+            ```diff
+            ${{ steps.ctx.outputs.diff_content }}
+            ```
+
+            # 変更コミット（抜粋）
+            ${{ steps.ctx.outputs.commits }}
+
+            # 変更ファイル（抜粋）
+            ${{ steps.ctx.outputs.files }}
+
+            # 執筆方針
+            - **リポジトリ名からプロジェクト名を推測し、適切なタイトルを作成する**
+            - **topics配列には技術スタック、言語、フレームワークなど関連する技術キーワードを4つ程度設定する**
+            - **emojiは内容に応じて適切なものを選択する**
+            - **コード差分を分析し、技術的な変更点を詳しく説明する**
+            - **開発者向けに具体的で実用的な内容にする**
+            - **リリースノートの内容をベースに、より詳細で読みやすい技術記事として展開する**
+            
+            # 必須フォーマット
+            ```
+            ---
+            title: "【リリースノート】[プロジェクト名] ${{ steps.ctx.outputs.tag }} - [主要な変更点を一言で]"
+            emoji: "🚀"
+            type: "tech"
+            topics: ['技術1', '技術2', '技術3', '技術4']
+            published: true
+            ---
+
+            ## はじめに
+
+            [プロジェクトの簡単な説明とリリースの概要]
+
+            ## 主な変更点
+
+            [リリースノートを元にした詳細な説明]
+
+            ## 技術的な詳細
+
+            [コード差分から読み取れる技術的な変更点の詳細]
+
+            ### 新機能
+
+            [新機能の詳細説明]
+
+            ### 改善点
+
+            [改善点の詳細説明]
+
+            ### バグ修正
+
+            [バグ修正の詳細説明]
+
+            ## まとめ
+
+            [今回のリリースのまとめと今後の展望]
+
+            ---
+            
+            📚 **参考リンク**
+            - [リポジトリ](${{ github.repository }})
+            - [比較表示](${{ steps.ctx.outputs.compare_url }})
+            - [リリースページ](https://github.com/${{ github.repository }}/releases/tag/${{ steps.ctx.outputs.tag }})
+            ```
+
+            # 注意事項
+            - frontmatterのYAMLは正確なフォーマットで記述する
+            - 出力は完全なMarkdownファイル形式で、余計な前置きや後書きは不要
+            - topicsには実際の技術スタックに基づいた適切なキーワードを設定する
+            - emojiはプロジェクトの性質に応じて適切なものを選択する
+
+      - name: Checkout Zenn repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'Sunwood-ai-labs/Zenn'
+          token: ${{ secrets.ZENN_REPO_TOKEN }}
+          path: 'zenn-repo'
+
+      - name: Create Zenn article file
+        env:
+          TAG: "${{ steps.ctx.outputs.tag }}"
+          REPOSITORY: "${{ github.repository }}"
+          ZENN_CONTENT: "${{ steps.zenn_article.outputs.summary }}"
+        run: |
+          set -euo pipefail
+          
+          # リポジトリ名からファイル名を生成
+          REPO_NAME="${REPOSITORY##*/}"  # Remove owner/ prefix
+          TAG_CLEAN="${TAG#v}"  # Remove 'v' prefix if present
+          TIMESTAMP=$(date +%Y%m%d)
+          
+          # ファイル名を生成: YYYYMMDD-reponame-version-release.md
+          FILENAME="${TIMESTAMP}-${REPO_NAME,,}-${TAG_CLEAN}-release.md"  # ,,で小文字に変換
+          FILEPATH="zenn-repo/articles/${FILENAME}"
+          
+          echo "Creating Zenn article: ${FILEPATH}"
+          
+          # articlesディレクトリが存在しない場合は作成
+          mkdir -p "zenn-repo/articles"
+          
+          # Zenn記事を作成
+          cat > "${FILEPATH}" << 'EOF'
+          ${{ steps.zenn_article.outputs.summary }}
+          EOF
+          
+          echo "✅ Created Zenn article: ${FILENAME}"
+          echo "File size: $(wc -c < "${FILEPATH}") bytes"
+          
+          # 出力変数にファイル名を設定
+          echo "zenn_filename=${FILENAME}" >> "$GITHUB_OUTPUT"
+          echo "zenn_filepath=${FILEPATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push Zenn article
+        env:
+          TAG: "${{ steps.ctx.outputs.tag }}"
+          REPOSITORY: "${{ github.repository }}"
+        run: |
+          set -euo pipefail
+          cd zenn-repo
+          
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add articles/
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit \
+              -m "📝 Add release article for ${REPOSITORY} ${TAG}" \
+              -m "Generated from: ${REPOSITORY}/releases/tag/${TAG}" \
+              -m "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+            echo "✅ Committed and pushed Zenn article"
+          fi
+
       - name: Write notes to file (with header image)
         env:
           HEADER_URL: "${{ steps.header.outputs.raw_url }}"
