@@ -467,7 +467,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: 'Sunwood-ai-labs/Zenn'
-          token: ${{ secrets.ZENN_REPO_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: 'zenn-repo'
 
       - name: Create Zenn article file
