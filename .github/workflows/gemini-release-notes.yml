@@ -1,483 +1,4 @@
-name: "📝 Gemini Release Notes"
-
-on:
-  push:
-    tags:
-      - "*"
-
-permissions:
-  contents: write
-
-defaults:
-  run:
-    shell: bash
-
-env:
-  # 環境変数で制御可能な設定
-  MAX_COMMITS: 300
-  MAX_FILES: 500
-  MAX_CONTRIBUTORS: 200
-  MAX_DIFF_LINES: 2000  # 新規追加: 差分の最大行数
-
-jobs:
-  release-notes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout default branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 0
-
-      - name: Prepare context
-        id: ctx
-        env:
-          REPOSITORY: "${{ github.repository }}"
-          TAG_NAME: "${{ github.ref_name }}"
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          MAX_COMMITS: "${{ env.MAX_COMMITS }}"
-          MAX_FILES: "${{ env.MAX_FILES }}"
-          MAX_CONTRIBUTORS: "${{ env.MAX_CONTRIBUTORS }}"
-          MAX_DIFF_LINES: "${{ env.MAX_DIFF_LINES }}"
-        run: |
-          set -euo pipefail
-
-          TAG="${TAG_NAME}"
-          git fetch --tags --prune --force >/dev/null 2>&1 || true
-
-          # Try to get previous released tag (from Releases). Fallback to previous git tag reachable from current.
-          PREV_RELEASE_TAG="$(gh release list --limit 100 --json tagName --jq 'map(.tagName) | map(select(. != env.TAG)) | .[0]' || true)"
-          if [[ -z "${PREV_RELEASE_TAG}" || "${PREV_RELEASE_TAG}" == "null" ]]; then
-            PREV_RELEASE_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
-          fi
-
-          BASE_RANGE=""
-          COMPARE_URL=""
-          if [[ -n "${PREV_RELEASE_TAG}" ]]; then
-            BASE_RANGE="${PREV_RELEASE_TAG}..${TAG}"
-            COMPARE_URL="https://github.com/${REPOSITORY}/compare/${PREV_RELEASE_TAG}...${TAG}"
-          else
-            # Initial release: include history up to the tag commit
-            BASE_RANGE="${TAG}"
-          fi
-
-          # Collect data (trim to keep prompt concise)
-          COMMITS="$(git log --no-merges --pretty=format:'- %s (%h) by %an' ${BASE_RANGE} | head -n ${MAX_COMMITS} || true)"
-          CHANGED_FILES="$( ( [[ -n "${PREV_RELEASE_TAG}" ]] && git diff --name-only ${BASE_RANGE} || git ls-tree -r --name-only HEAD ) | sed 's/^/- /' | head -n ${MAX_FILES} || true)"
-          CONTRIBUTORS="$(git log --format='%an' ${BASE_RANGE} | sort -u | sed 's/^/- /' | head -n ${MAX_CONTRIBUTORS} || true)"
-          
-          # 🔥 新規追加: 実際のコード差分を取得
-          echo "Collecting code diff (max ${MAX_DIFF_LINES} lines)..."
-          if [[ -n "${PREV_RELEASE_TAG}" ]]; then
-            # 前のリリースとの差分
-            DIFF_CONTENT="$(git diff ${BASE_RANGE} | head -n ${MAX_DIFF_LINES} || true)"
-            DIFF_STATS="$(git diff --stat ${BASE_RANGE} | head -n 100 || true)"
-          else
-            # 初回リリース: 全ファイル内容（制限付き）
-            DIFF_CONTENT="$(git show --format="" --name-status HEAD | head -n ${MAX_DIFF_LINES} || true)"
-            DIFF_STATS="$(git ls-tree -r --name-only HEAD | wc -l) files in initial release"
-          fi
-
-          {
-            echo "tag=${TAG}"
-            echo "prev_tag=${PREV_RELEASE_TAG}"
-            echo "compare_url=${COMPARE_URL}"
-            echo 'commits<<EOF'
-            echo "${COMMITS}"
-            echo 'EOF'
-            echo 'files<<EOF'
-            echo "${CHANGED_FILES}"
-            echo 'EOF'
-            echo 'contributors<<EOF'
-            echo "${CONTRIBUTORS}"
-            echo 'EOF'
-            echo 'diff_stats<<EOF'
-            echo "${DIFF_STATS}"
-            echo 'EOF'
-            echo 'diff_content<<EOF'
-            echo "${DIFF_CONTENT}"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-          echo "✅ Collected context:"
-          echo "  - Commits: $(echo "${COMMITS}" | wc -l) entries"
-          echo "  - Files: $(echo "${CHANGED_FILES}" | wc -l) entries"
-          echo "  - Contributors: $(echo "${CONTRIBUTORS}" | wc -l) entries"
-          echo "  - Diff content: $(echo "${DIFF_CONTENT}" | wc -l) lines"
-
-      - name: Build release image prompt
-        id: build_image_prompt
-        env:
-          TAG: "${{ steps.ctx.outputs.tag }}"
-          REPOSITORY: "${{ github.repository }}"
-        run: |
-          set -euo pipefail
-          TEMPLATE=".github/prompts/release-image.en.txt"
-          if [[ ! -f "${TEMPLATE}" ]]; then
-            echo "Prompt template not found: ${TEMPLATE}" >&2
-            exit 1
-          fi
-          
-          # Extract repository name and transform it
-          # e.g., "owner/my-awesome-repo" -> "my-awesome-repo" -> "MY AWESOME REPO"
-          REPO_NAME="${REPOSITORY##*/}"  # Remove owner/ prefix
-          REPO_DISPLAY=$(echo "${REPO_NAME}" | tr '-' ' ' | tr '[:lower:]' '[:upper:]')
-          
-          echo "Repository: ${REPOSITORY}"
-          echo "Repository name: ${REPO_NAME}" 
-          echo "Display name: ${REPO_DISPLAY}"
-          echo "Tag: ${TAG}"
-          
-          # Replace placeholders using environment variables for Perl
-          # - v0.0.0 -> actual tag (e.g., v0.2.0)
-          # - GEMINI ACTIONS LAB -> transformed repository name
-          PROMPT=$(TAG="${TAG}" REPO_DISPLAY="${REPO_DISPLAY}" perl -pe '
-            s/\bv0\.0\.0\b/\Q$ENV{TAG}\E/g;
-            s/\bGEMINI ACTIONS LAB\b/\Q$ENV{REPO_DISPLAY}\E/g;
-          ' "${TEMPLATE}")
-          
-          {
-            echo 'image_prompt<<EOF'
-            echo "${PROMPT}"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-          
-          echo "✅ Processed image prompt template with replacements"
-
-      - name: Create image output directory
-        id: outdir
-        run: |
-          set -euo pipefail
-          ts=$(date +%Y%m%d_%H%M%S)
-          dir="generated-images/release-${{ steps.ctx.outputs.tag }}-${ts}"
-          mkdir -p "${dir}"
-          echo "OUTPUT_DIR=${dir}" >> "$GITHUB_OUTPUT"
-          echo "Created ${dir}"
-
-      - name: Generate release image via Gemini CLI (+ Imagen MCP)
-        uses: google-github-actions/run-gemini-cli@v0
-        env:
-          IMAGE_PROMPT: "${{ steps.build_image_prompt.outputs.image_prompt }}"
-        with:
-          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
-          gemini_model: gemini-2.5-flash
-          gemini_debug: true
-          settings: |
-            {
-              "mcpServers": {
-                "gemini-imagen": {
-                  "command": "npx",
-                  "args": ["-y", "gemini-imagen-mcp-server",
-                           "--output-dir", "${{ steps.outdir.outputs.OUTPUT_DIR }}",
-                           "--model", "imagen-4-ultra"],
-                  "env": { "GEMINI_API_KEY": "${{ secrets.GEMINI_API_KEY }}" },
-                  "trust": true,
-                  "includeTools": ["generate_image"]
-                }
-              }
-            }
-          prompt: |
-            Use the @gemini-imagen.generate_image tool to generate 1 image
-            from this prompt: "${{ env.IMAGE_PROMPT }}".
-            Use aspect ratio "16:9".
-            Save files under ./${{ steps.outdir.outputs.OUTPUT_DIR }} and list only the filenames.
-
-      - name: Verify release image files
-        run: |
-          set -euo pipefail
-          dir="${{ steps.outdir.outputs.OUTPUT_DIR }}"
-          if [[ ! -d "${dir}" ]]; then
-            echo "${dir} not found"; exit 1
-          fi
-          echo "== Generated files =="
-          ls -lh "${dir}"
-          cnt=$(ls -1 "${dir}" | wc -l)
-          if [[ "${cnt}" -lt 1 ]]; then
-            echo "No images were generated"; exit 1
-          fi
-          echo "✅ Successfully generated ${cnt} file(s)"
-
-      - name: Add image metadata file
-        run: |
-          set -euo pipefail
-          dir="${{ steps.outdir.outputs.OUTPUT_DIR }}"
-          cat > "${dir}/metadata.json" << 'EOF'
-          {
-            "generation_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "prompt": "${{ steps.build_image_prompt.outputs.image_prompt }}",
-            "model": "imagen-4-ultra",
-            "num_images": 1,
-            "aspect_ratio": "16:9",
-            "seed": "",
-            "workflow_run": "${{ github.run_number }}",
-            "commit_sha": "${{ github.sha }}",
-            "tag": "${{ steps.ctx.outputs.tag }}"
-          }
-          EOF
-          echo "Created metadata file: ${dir}/metadata.json"
-
-      - name: Commit and push release image
-        run: |
-          set -euo pipefail
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add "${{ steps.outdir.outputs.OUTPUT_DIR }}"/
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit \
-              -m "🎨 Release image for ${{ steps.ctx.outputs.tag }}" \
-              -m "Model: imagen-4-ultra" \
-              -m "Images: 1" \
-              -m "Aspect ratio: 16:9" \
-              -m "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push origin HEAD:${{ github.event.repository.default_branch }}
-            echo "✅ Committed release image"
-          fi
-
-      - name: Find header image and build raw URL
-        id: header
-        env:
-          OUTPUT_DIR: "${{ steps.outdir.outputs.OUTPUT_DIR }}"
-          REPOSITORY: "${{ github.repository }}"
-          DEFAULT_BRANCH: "${{ github.event.repository.default_branch }}"
-        run: |
-          set -euo pipefail
-          dir="${OUTPUT_DIR}"
-          if [[ -d "${dir}" ]]; then
-            # Find the first image file by common extensions
-            img=$(ls -1 "${dir}" | grep -Ei '\.(png|jpg|jpeg)$' | head -n 1 || true)
-            if [[ -n "${img:-}" ]]; then
-              image_path="${dir}/${img}"
-              image_name="${img}"
-              # Build canonical raw URL: https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>
-              raw_url="https://raw.githubusercontent.com/${REPOSITORY}/${DEFAULT_BRANCH}/${image_path}"
-              echo "image_path=${image_path}" >> "$GITHUB_OUTPUT"
-              echo "image_name=${image_name}" >> "$GITHUB_OUTPUT"
-              echo "raw_url=${raw_url}" >> "$GITHUB_OUTPUT"
-              echo "Found header image: ${image_path}"
-              echo "RAW URL: ${raw_url}"
-            else
-              echo "No image file found in ${dir}"
-            fi
-          else
-            echo "Output dir not found: ${dir}"
-          fi
-
-      - name: Generate release notes with Gemini
-        id: gemini
-        uses: google-github-actions/run-gemini-cli@v0
-        env:
-          REPOSITORY: "${{ github.repository }}"
-          TAG_NAME: "${{ steps.ctx.outputs.tag }}"
-          PREV_TAG: "${{ steps.ctx.outputs.prev_tag }}"
-          COMPARE_URL: "${{ steps.ctx.outputs.compare_url }}"
-          COMMITS: "${{ steps.ctx.outputs.commits }}"
-          CHANGED_FILES: "${{ steps.ctx.outputs.files }}"
-          CONTRIBUTORS: "${{ steps.ctx.outputs.contributors }}"
-          DIFF_STATS: "${{ steps.ctx.outputs.diff_stats }}"
-          DIFF_CONTENT: "${{ steps.ctx.outputs.diff_content }}"
-        with:
-          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
-          gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
-          gcp_project_id: "${{ vars.GOOGLE_CLOUD_PROJECT }}"
-          gcp_location: "${{ vars.GOOGLE_CLOUD_LOCATION }}"
-          gcp_service_account: "${{ vars.SERVICE_ACCOUNT_EMAIL }}"
-          use_vertex_ai: "${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}"
-          use_gemini_code_assist: "${{ vars.GOOGLE_GENAI_USE_GCA }}"
-          settings: |
-            { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
-          prompt: |
-            あなたはリリースノート作成のエキスパートです。以下の情報から、日本語で読みやすいMarkdownのリリースノートを作成してください。
-
-            # コンテキスト
-            - リポジトリ: ${{ github.repository }}
-            - リリースタグ: ${{ steps.ctx.outputs.tag }}
-            - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
-            - 比較URL: ${{ steps.ctx.outputs.compare_url }}
-
-            # 変更統計
-            ${{ steps.ctx.outputs.diff_stats }}
-
-            # コード差分（実際の変更内容）
-            ```diff
-            ${{ steps.ctx.outputs.diff_content }}
-            ```
-
-            # 変更コミット（抜粋）
-            ${{ steps.ctx.outputs.commits }}
-
-            # 変更ファイル（抜粋）
-            ${{ steps.ctx.outputs.files }}
-
-            # コントリビューター（抜粋）
-            ${{ steps.ctx.outputs.contributors }}
-
-            # 執筆方針
-            - **コード差分を必ず参照**して、実際の変更内容を正確に把握してからリリースノートを作成する
-            - 見出しと箇条書きを用いて簡潔に
-            - 主な変更点(Highlights)、Breaking Changes（あれば）、改善・修正、貢献者の順でまとめる
-            - 可能ならConventional Commitsを手掛かりに分類（feat/fix/docs/chore/refactor/perf/test 等）
-            - コード差分から重大変更（API変更、削除された機能等）を検出し「Breaking Changes」に明記
-            - 新機能、バグ修正、改善点を差分から具体的に抽出
-            - 最後に比較URLを記載
-            - 出力はMarkdownのみ（余計な前置きや後書き、コードフェンスは不要）
-
-            # 期待するMarkdownの構成例
-            # ${{ steps.ctx.outputs.tag }} ～このリリースノートの内容が分かるようなタイトル～
-            
-            ## ✨ Highlights
-            - 主要な変更点の要約（コード差分から判断）
-
-            ## 💥 Breaking Changes
-            - 重大な変更点（API変更、削除された機能等をコード差分から検出）
-
-            ## 🛠 変更一覧
-            ### ✨ Features (feat)
-            - 新機能の詳細（コード差分から判断）
-
-            ### 🐛 Bug Fixes (fix)  
-            - 修正内容の詳細（コード差分から判断）
-
-            ### 📚 Documentation (docs)
-            - ドキュメント更新内容
-
-            ### 🔧 Maintenance (chore/refactor)
-            - リファクタリングやメンテナンス内容
-
-            ## 👥 Contributors
-            - ユーザー名一覧（抜粋）
-
-            ---
-            比較: ${{ steps.ctx.outputs.compare_url }}
-
-      # 🆕 新規追加: Zenn記事生成ステップ
-      - name: Generate Zenn article with Gemini
-        id: zenn_article
-        uses: google-github-actions/run-gemini-cli@v0
-        env:
-          REPOSITORY: "${{ github.repository }}"
-          TAG_NAME: "${{ steps.ctx.outputs.tag }}"
-          PREV_TAG: "${{ steps.ctx.outputs.prev_tag }}"
-          COMPARE_URL: "${{ steps.ctx.outputs.compare_url }}"
-          COMMITS: "${{ steps.ctx.outputs.commits }}"
-          CHANGED_FILES: "${{ steps.ctx.outputs.files }}"
-          CONTRIBUTORS: "${{ steps.ctx.outputs.contributors }}"
-          DIFF_STATS: "${{ steps.ctx.outputs.diff_stats }}"
-          DIFF_CONTENT: "${{ steps.ctx.outputs.diff_content }}"
-          RELEASE_NOTES: "${{ steps.gemini.outputs.summary }}"
-          HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
-          HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
-        with:
-          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
-          gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
-          gcp_project_id: "${{ vars.GOOGLE_CLOUD_PROJECT }}"
-          gcp_location: "${{ vars.GOOGLE_CLOUD_LOCATION }}"
-          gcp_service_account: "${{ vars.SERVICE_ACCOUNT_EMAIL }}"
-          use_vertex_ai: "${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}"
-          use_gemini_code_assist: "${{ vars.GOOGLE_GENAI_USE_GCA }}"
-          settings: |
-            { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
-          prompt: |
-            あなたはZennの技術記事作成のエキスパートです。以下の情報から、リリースノートを元にしたZenn記事を作成してください。
-
-            # コンテキスト
-            - リポジトリ: ${{ github.repository }}
-            - リリースタグ: ${{ steps.ctx.outputs.tag }}
-            - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
-            - 比較URL: ${{ steps.ctx.outputs.compare_url }}
-            - ヘッダー画像URL: ${{ steps.header.outputs.raw_url }}
-            - ヘッダー画像ファイル名: ${{ steps.header.outputs.image_name }}
-
-            # 生成済みリリースノート
-            ${{ steps.gemini.outputs.summary }}
-
-            # 変更統計
-            ${{ steps.ctx.outputs.diff_stats }}
-
-            # コード差分（実際の変更内容）
-            ```diff
-            ${{ steps.ctx.outputs.diff_content }}
-            ```
-
-            # 変更コミット（抜粋）
-            ${{ steps.ctx.outputs.commits }}
-
-            # 変更ファイル（抜粋）
-            ${{ steps.ctx.outputs.files }}
-
-            # 執筆方針
-            - **リポジトリ名からプロジェクト名を推測し、適切なタイトルを作成する**
-            - **topics配列には技術スタック、言語、フレームワークなど関連する技術キーワードを4つ程度設定する**
-            - **emojiは内容に応じて適切なものを選択する**
-            - **コード差分を分析し、技術的な変更点を詳しく説明する**
-            - **開発者向けに具体的で実用的な内容にする**
-            - **リリースノートの内容をベースに、より詳細で読みやすい技術記事として展開する**
-            - **ヘッダー画像URL（${{ steps.header.outputs.raw_url }}）があれば、frontmatterの直後にMarkdownで表示する**
-
-            # 必須フォーマット
-            ```
-            ---
-            title: "【リリースノート】[プロジェクト名] ${{ steps.ctx.outputs.tag }} - [主要な変更点を一言で]"
-            emoji: "🚀"
-            type: "tech"
-            topics: ['技術1', '技術2', '技術3', '技術4']
-            published: true
-            ---
-
-            ## はじめに
-
-            [プロジェクトの簡単な説明とリリースの概要]
-
-            ## 主な変更点
-
-            [リリースノートを元にした詳細な説明]
-
-            ## 技術的な詳細
-
-            [コード差分から読み取れる技術的な変更点の詳細]
-
-            ### 新機能
-
-            [新機能の詳細説明]
-
-            ### 改善点
-
-            [改善点の詳細説明]
-
-            ### バグ修正
-
-            [バグ修正の詳細説明]
-
-            ## まとめ
-
-            [今回のリリースのまとめと今後の展望]
-
-            ---
-            
-            📚 **参考リンク**
-            - [リポジトリ](${{ github.repository }})
-            - [比較表示](${{ steps.ctx.outputs.compare_url }})
-            - [リリースページ](https://github.com/${{ github.repository }}/releases/tag/${{ steps.ctx.outputs.tag }})
-            ```
-
-            # 注意事項
-            - frontmatterのYAMLは正確なフォーマットで記述する
-            - 出力は完全なMarkdownファイル形式で、余計な前置きや後書きは不要
-            - topicsには実際の技術スタックに基づいた適切なキーワードを設定する
-            - emojiはプロジェクトの性質に応じて適切なものを選択する
-            - 記事全体をコードブロックで囲まず、Markdown本文として出力する
-            - ヘッダー画像URLが空でない場合は、frontmatterの直後に`![${{ steps.header.outputs.image_name }}](${{ steps.header.outputs.raw_url }})`形式で記載する
-
-      - name: Checkout Zenn repository
-        uses: actions/checkout@v4
-        with:
-          repository: 'Sunwood-ai-labs/Zenn'
-          token: ${{ secrets.ZENN_REPO_TOKEN }}
-          path: 'zenn-repo'
-
-      - name: Create Zenn article file
+- name: Create Zenn article file
         env:
           TAG: "${{ steps.ctx.outputs.tag }}"
           REPOSITORY: "${{ github.repository }}"
@@ -487,48 +8,39 @@ jobs:
           HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
         run: |
           set -euo pipefail
-
           # リポジトリ名からファイル名を生成
           REPO_NAME="${REPOSITORY##*/}"  # Remove owner/ prefix
           TAG_CLEAN="${TAG#v}"  # Remove 'v' prefix if present
           TIMESTAMP=$(date +%Y%m%d)
-
           # ファイル名（拡張子を除く）はZenn記事のslugとなるため、制約に合わせて生成
           RAW_SLUG="${TIMESTAMP}-${REPO_NAME}-${TAG_CLEAN}-release"
           RAW_SLUG="${RAW_SLUG,,}"  # 小文字化
-
           # 使用可能文字（a-z0-9_-）以外をハイフンに置換し、ハイフン・アンダースコアの連続を整理
           SLUG=$(echo "${RAW_SLUG}" \
             | sed 's/[^a-z0-9_-]/-/g' \
             | sed -E 's/-{2,}/-/g' \
             | sed -E 's/_{2,}/_/g' \
             | sed -E 's/^[-_]+//; s/[-_]+$//')
-
           # 生成結果が空の場合は日付ベースのslugを使用
           if [[ -z "${SLUG}" ]]; then
             SLUG="${TIMESTAMP}-release"
           fi
-
           # 最大文字数（50文字）を超える場合はトリミングし、末尾のハイフン/アンダースコアを除去
           if [[ ${#SLUG} -gt 50 ]]; then
             SLUG="${SLUG:0:50}"
             SLUG=$(echo "${SLUG}" | sed -E 's/[-_]+$//')
           fi
-
           # 最小文字数（12文字）に満たない場合は許容文字でパディング
           while [[ ${#SLUG} -lt 12 ]]; do
             SLUG="${SLUG}x"
           done
-
           # 最終的なslugが制約を満たすか検証
           if [[ ! "${SLUG}" =~ ^[a-z0-9_-]{12,50}$ ]]; then
             echo "生成されたslug '${SLUG}' が制約を満たしません" >&2
             exit 1
           fi
-
           FILENAME="${SLUG}.md"
           FILEPATH="zenn-repo/articles/${FILENAME}"
-
           echo "Creating Zenn article: ${FILEPATH}"
           
           # articlesディレクトリが存在しない場合は作成
@@ -536,16 +48,16 @@ jobs:
           
           # Zenn記事を作成（ヘッダー画像のMarkdown挿入はGeminiの出力に任せる）。
           # 生成物がコードフェンスで囲まれている場合は中身のみ抽出する。
-          python3 - <<'PY'
+          python3 -c "
 import os
 import pathlib
 import re
 
-filepath = os.environ["FILEPATH"]
-raw_content = os.environ.get("ZENN_CONTENT", "")
+filepath = os.environ['FILEPATH']
+raw_content = os.environ.get('ZENN_CONTENT', '')
 
 # 正規化（改行コードをLFへ）。
-normalized = raw_content.replace("\r\n", "\n").replace("\r", "\n")
+normalized = raw_content.replace('\r\n', '\n').replace('\r', '\n')
 
 # 先頭の空白を保持したままコードフェンスの有無を判定する。
 leading_len = len(normalized) - len(normalized.lstrip())
@@ -553,25 +65,25 @@ leading = normalized[:leading_len]
 stripped = normalized[leading_len:]
 
 processed = normalized
-mode = "as-is"
+mode = 'as-is'
 
-match = re.match(r"^```(?:markdown)?\s*\n?", stripped, flags=re.IGNORECASE)
+match = re.match(r'^```(?:markdown)?\s*\n?', stripped, flags=re.IGNORECASE)
 if match:
     body = stripped[match.end():]
     lines = body.splitlines(keepends=True)
     for idx in range(len(lines) - 1, -1, -1):
-        if lines[idx].strip() == "```":
+        if lines[idx].strip() == '```':
             del lines[idx]
             break
-    processed = leading + "".join(lines)
-    mode = "removed outer fence"
+    processed = leading + ''.join(lines)
+    mode = 'removed outer fence'
 
-if not processed.endswith("\n"):
-    processed += "\n"
+if not processed.endswith('\n'):
+    processed += '\n'
 
-pathlib.Path(filepath).write_text(processed, encoding="utf-8")
-print(f"Saved Zenn content ({mode}), {len(processed)} characters -> {filepath}")
-PY
+pathlib.Path(filepath).write_text(processed, encoding='utf-8')
+print(f'Saved Zenn content ({mode}), {len(processed)} characters -> {filepath}')
+          "
 
           echo "✅ Created Zenn article: ${FILENAME}"
           echo "File size: $(wc -c < "${FILEPATH}") bytes"
@@ -579,80 +91,3 @@ PY
           # 出力変数にファイル名を設定
           echo "zenn_filename=${FILENAME}" >> "$GITHUB_OUTPUT"
           echo "zenn_filepath=${FILEPATH}" >> "$GITHUB_OUTPUT"
-
-      - name: Commit and push Zenn article
-        env:
-          TAG: "${{ steps.ctx.outputs.tag }}"
-          REPOSITORY: "${{ github.repository }}"
-          GITHUB_TOKEN: "${{ secrets.ZENN_REPO_TOKEN }}"
-        run: |
-          set -euo pipefail
-          cd zenn-repo
-          
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          git add articles/
-          
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit \
-              -m "📝 Add release article for ${REPOSITORY} ${TAG}" \
-              -m "Generated from: ${REPOSITORY}/releases/tag/${TAG}" \
-              -m "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push
-            echo "✅ Committed and pushed Zenn article"
-          fi
-
-      - name: Write notes to file (with header image)
-        env:
-          HEADER_URL: "${{ steps.header.outputs.raw_url }}"
-          IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
-        run: |
-          set -euo pipefail
-          : > release_notes.md
-          if [[ -n "${HEADER_URL}" && -n "${IMAGE_NAME}" ]]; then
-            {
-              # Image first at the very top
-              echo "![${IMAGE_NAME}](${HEADER_URL})"
-              echo
-              echo "#### ヘッダー画像: ${IMAGE_NAME}"
-              echo "[🔗 直接リンク](${HEADER_URL})"
-              echo
-            } >> release_notes.md
-          fi
-          # Append the model-generated notes without expanding variables
-          cat >> release_notes.md << 'EOF'
-          ${{ steps.gemini.outputs.summary }}
-          EOF
-          echo "Wrote release_notes.md (size: $(wc -c < release_notes.md) bytes)"
-
-      - name: Create or update GitHub Release
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          TAG: "${{ steps.ctx.outputs.tag }}"
-        run: |
-          set -euo pipefail
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release edit "${TAG}" --notes-file release_notes.md
-          else
-            # Mark pre-releases automatically if tag contains pre-release identifiers
-            PRERELEASE_FLAG=""
-            if [[ "${TAG}" =~ -(alpha|beta|rc) ]]; then PRERELEASE_FLAG="--prerelease"; fi
-            gh release create "${TAG}" --title "${TAG}" --notes-file release_notes.md ${PRERELEASE_FLAG}
-          fi
-
-      - name: Upload header image to Release assets
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          TAG: "${{ steps.ctx.outputs.tag }}"
-          IMAGE_FILE: "${{ steps.header.outputs.image_path }}"
-        run: |
-          set -euo pipefail
-          if [[ -n "${IMAGE_FILE}" && -f "${IMAGE_FILE}" ]]; then
-            gh release upload "${TAG}" "${IMAGE_FILE}" --clobber
-            echo "✅ Uploaded header image asset: ${IMAGE_FILE}"
-          else
-            echo "No header image to upload"
-          fi
