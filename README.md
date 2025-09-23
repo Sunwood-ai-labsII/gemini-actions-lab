@@ -102,6 +102,42 @@ AIアシスタントが利用可能なコマンドと使用例を返信します
 
 ---
 
+## 🛠️ gemini-actions-lab CLI
+
+リポジトリに付属する `gemini-actions-lab-cli`（エイリアス: `gal`）を使うと、シークレット同期やテンプレートワークフローの取得をコマンド一発で実行できます。
+
+### インストール
+
+`uv` を使って依存関係を同期します。
+
+```bash
+uv sync
+```
+
+### シークレットの同期
+
+`.env` に定義した値を指定のリポジトリシークレットへ一括で作成・更新します。
+
+```bash
+uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.env
+```
+
+- `GITHUB_TOKEN` 環境変数、または `--token` オプションで GitHub の個人アクセストークンを指定してください。
+
+### .github ディレクトリの同期
+
+テンプレートリポジトリ（デフォルト: `Sunwood-ai-labsII/gemini-actions-lab`）から `.github` フォルダを取得して現在のリポジトリへコピーします。
+
+```bash
+uv run gal sync-workflows --destination . --clean
+```
+
+- `--template-repo` で別のテンプレートを指定可能です。
+- `--ref` でブランチやタグを固定できます。
+- `--clean` を付けると既存の `.github` フォルダを削除してから展開します。
+
+---
+
 ## 📁 ディレクトリ構造
 
 ```
