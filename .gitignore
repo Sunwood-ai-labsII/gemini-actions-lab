@@ -5,6 +5,8 @@ discord-issue-bot/.env
 __pycache__/
 **/__pycache__/**
 *.pyc
+*.egg-info/
+**/*.egg-info/
 
 # Node/Yarn
 node_modules/

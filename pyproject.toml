@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gemini-actions-lab-cli"
+version = "0.1.0"
+description = "Command line helpers for Gemini Actions Lab repositories"
+readme = "README.md"
+authors = [
+    { name = "Sunwood AI Labs" },
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.3",
+    "PyNaCl>=1.5.0",
+]
+
+[project.scripts]
+"gemini-actions-lab-cli" = "gemini_actions_lab_cli.cli:main"
+"gal" = "gemini_actions_lab_cli.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
