@@ -116,12 +116,14 @@ uv sync
 
 ### シークレットの同期
 
-`.env` に定義した値を指定のリポジトリシークレットへ一括で作成・更新します。
+`.secrets.env`（任意のファイルを `--env-file` で指定可能）に定義した値を、リポジトリシークレットへ一括で作成・更新します。
 
 ```bash
-uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.env
+uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 ```
 
+- コマンド実行ディレクトリの `.env` ファイルは自動的に読み込まれ、`GITHUB_TOKEN` など CLI 実行に必要な環境変数を設定できます。
+- リポジトリへ同期したい secrets は `.secrets.env` に分離してください（任意のファイルを `--env-file` で指定可）。
 - `GITHUB_TOKEN` 環境変数、または `--token` オプションで GitHub の個人アクセストークンを指定してください。
 
 ### .github ディレクトリの同期
@@ -135,6 +137,18 @@ uv run gal sync-workflows --destination . --clean
 - `--template-repo` で別のテンプレートを指定可能です。
 - `--ref` でブランチやタグを固定できます。
 - `--clean` を付けると既存の `.github` フォルダを削除してから展開します。
+
+リモートリポジトリへ直接反映したい場合は、以下のように `--repo` オプションを利用できます。
+
+```bash
+uv run gal sync-workflows --repo <owner>/<repo> --clean --enable-pages-actions
+```
+
+- ブランチを指定しない場合は対象リポジトリのデフォルトブランチにコミットします。`--branch` で任意のブランチを指定できます。
+- `--message` でコミットメッセージを上書き可能です。
+- GitHub Pages を GitHub Actions デプロイに切り替えたい場合は `--enable-pages-actions` を付けてください（Pages の「Source」が GitHub Actions に設定されます）。
+- 既存の `.github` ディレクトリを置き換えたいときは `--clean` を付けてください（対象ブランチ上で削除したいファイルがあっても 1 回のコミットにまとめられます）。
+- 書き込み権限のあるトークン (例: `GH_PAT`) が必要です。`--force` を付けるとリファレンス更新を強制できます。
 
 ---
 
