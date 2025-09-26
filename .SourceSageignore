@@ -52,3 +52,6 @@ repository_summary.md
 venv
 .venv
 
+generated-images/
+discord-issue-bot/
+.github/
