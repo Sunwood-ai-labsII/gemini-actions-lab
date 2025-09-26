@@ -6,13 +6,19 @@ import io
 import shutil
 import zipfile
 from pathlib import Path
+from typing import Iterable
 
 
 class WorkflowSyncError(RuntimeError):
     """Raised when the template repository does not contain a ``.github`` folder."""
 
 
-def extract_github_directory(archive_bytes: bytes, destination: Path, clean: bool = False) -> list[Path]:
+def extract_github_directory(
+    archive_bytes: bytes,
+    destination: Path,
+    clean: bool = False,
+    extra_files: Iterable[str] | None = None,
+) -> list[Path]:
     """Extract the ``.github`` directory from a zip archive into ``destination``.
 
     Args:
@@ -20,6 +26,7 @@ def extract_github_directory(archive_bytes: bytes, destination: Path, clean: boo
         destination: Base directory to extract into.
         clean: When True the existing ``.github`` directory is removed before
             writing new files.
+        extra_files: Additional repository-relative files to extract (e.g. ``index.html``).
 
     Returns:
         A list with the paths of the files that were written.
@@ -27,6 +34,8 @@ def extract_github_directory(archive_bytes: bytes, destination: Path, clean: boo
 
     destination = destination.expanduser().resolve()
     github_root = destination / ".github"
+    extras = {path.lstrip("/") for path in (extra_files or [])}
+    extras_found: set[str] = set()
 
     with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
         top_level_prefix = None
@@ -45,15 +54,27 @@ def extract_github_directory(archive_bytes: bytes, destination: Path, clean: boo
 
         written: list[Path] = []
         for member in archive.namelist():
-            if not member.startswith(f"{top_level_prefix}/.github/"):
-                continue
             if member.endswith("/"):
                 continue
-            relative_path = member[len(f"{top_level_prefix}/.github/"):]
-            target_path = github_root / relative_path
+            if member.startswith(f"{top_level_prefix}/.github/"):
+                relative_path = member[len(f"{top_level_prefix}/"):]
+                target_path = destination / relative_path
+            else:
+                relative_repo_path = member[len(f"{top_level_prefix}/"):]
+                if relative_repo_path not in extras:
+                    continue
+                target_path = destination / relative_repo_path
+                extras_found.add(relative_repo_path)
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as source, open(target_path, "wb") as dest:
                 shutil.copyfileobj(source, dest)
             written.append(target_path)
+
+        missing_extras = extras - extras_found
+        if missing_extras:
+            missing_repr = ", ".join(sorted(missing_extras))
+            raise WorkflowSyncError(
+                f"Template archive does not contain the expected files: {missing_repr}"
+            )
 
     return written

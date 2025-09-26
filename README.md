@@ -126,29 +126,20 @@ uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 - リポジトリへ同期したい secrets は `.secrets.env` に分離してください（任意のファイルを `--env-file` で指定可）。
 - `GITHUB_TOKEN` 環境変数、または `--token` オプションで GitHub の個人アクセストークンを指定してください。
 
-### .github ディレクトリの同期
+### 🚀 クイックスタート
 
-テンプレートリポジトリ（デフォルト: `Sunwood-ai-labsII/gemini-actions-lab`）から `.github` フォルダを取得して現在のリポジトリへコピーします。
-
-```bash
-uv run gal sync-workflows --destination . --clean
-```
-
-- `--template-repo` で別のテンプレートを指定可能です。
-- `--ref` でブランチやタグを固定できます。
-- `--clean` を付けると既存の `.github` フォルダを削除してから展開します。
-
-リモートリポジトリへ直接反映したい場合は、以下のように `--repo` オプションを利用できます。
+よく使う同期コマンドは下記のとおりです（Pages 連携とトップページのコピー込み）。
 
 ```bash
-uv run gal sync-workflows --repo <owner>/<repo> --clean --enable-pages-actions
+uv run gal sync-workflows \
+  --repo Sunwood-ai-labs/demo-001 \
+  --destination . \
+  --clean \
+  --enable-pages-actions \
+  --include-index
 ```
 
-- ブランチを指定しない場合は対象リポジトリのデフォルトブランチにコミットします。`--branch` で任意のブランチを指定できます。
-- `--message` でコミットメッセージを上書き可能です。
-- GitHub Pages を GitHub Actions デプロイに切り替えたい場合は `--enable-pages-actions` を付けてください（Pages の「Source」が GitHub Actions に設定されます）。
-- 既存の `.github` ディレクトリを置き換えたいときは `--clean` を付けてください（対象ブランチ上で削除したいファイルがあっても 1 回のコミットにまとめられます）。
-- 書き込み権限のあるトークン (例: `GH_PAT`) が必要です。`--force` を付けるとリファレンス更新を強制できます。
+オプションの詳細やその他のユースケースは `src/README.md` を参照してください。
 
 ---
 
