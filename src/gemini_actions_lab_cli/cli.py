@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import itertools
 import os
+import re
+import shutil
 import sys
 import tempfile
 import time
@@ -45,11 +47,13 @@ def _render_intro_animation() -> None:
     for line, color in zip(BANNER_LINES, itertools.cycle(colors)):
         print(f"{color}{line}\033[0m", flush=True)
         time.sleep(0.04)
-    print("\033[92m✨ GEMINI ACTIONS LAB CLI ✨\033[0m\n")
+    # print("\033[92m✨ GEMINI ACTIONS LAB CLI ✨\033[0m\n")
     _INTRO_SHOWN = True
 
 
 class ProgressReporter:
+    RESET = "\033[0m"
+
     def __init__(self) -> None:
         self._spinner = itertools.cycle([
             "\033[95m◆\033[0m",
@@ -57,24 +61,69 @@ class ProgressReporter:
             "\033[96m◆\033[0m",
             "\033[36m◇\033[0m",
         ])
+        self._buffer: list[tuple[str, str | None]] = []
+
+    @staticmethod
+    def _visible_len(text: str) -> int:
+        return len(re.sub(r"\x1b\[[0-9;]*m", "", text))
+
+    def _panel(self, header: str, body: list[str], accent: str) -> None:
+        visible_lengths = [self._visible_len(header) + 2] + [
+            self._visible_len(line) + 2 for line in body
+        ]
+        content_width = max(visible_lengths) if visible_lengths else 20
+        term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+        target_width = max(term_width - 2, 20)
+        inner_width = max(target_width, content_width)
+        horiz = "─" * inner_width
+        top = f"{accent}┌{horiz}┐{self.RESET}"
+        bottom = f"{accent}└{horiz}┘{self.RESET}"
+        print(top)
+        print(f"{accent}│{self._pad(header, inner_width)}│{self.RESET}")
+        for line in body:
+            print(f"{accent}│{self._pad(line, inner_width)}│{self.RESET}")
+        print(bottom)
+
+    def _pad(self, text: str, width: int) -> str:
+        visible_len = self._visible_len(text)
+        extra = width - visible_len
+        if extra >= 0:
+            right_pad = max(extra - 1, 0)
+            return f" {text}{' ' * right_pad}"
+        return f" {text}"
 
     def stage(self, title: str, detail: str | None = None) -> None:
         badge = next(self._spinner)
-        print(f"{badge} {title}")
-        if detail:
-            print(f"    ↳ {detail}")
+        self._buffer.append((f"{badge} {title}", detail))
 
     def success(self, message: str) -> None:
-        print(f"✔ {message}")
+        self._buffer.append((f"✔ {message}", None))
 
     def info(self, message: str) -> None:
-        print(f"… {message}")
+        self._buffer.append((f"… {message}", None))
 
-    def section(self, title: str) -> None:
-        print(f"\n=== {title} ===")
+    def list_panel(self, title: str, items: list[str]) -> None:
+        body = [f"• {item}" for item in items] if items else ["(none)"]
+        header = f"📂 {title}"
+        self._panel(header, body, "\033[94m")
 
-    def item(self, message: str) -> None:
-        print(f"  • {message}")
+    def grouped(self, title: str, entries: list[tuple[str, str | None]]) -> None:
+        lines: list[str] = []
+        for label, detail in entries:
+            text = label if detail is None else f"{label}: {detail}"
+            lines.append(text)
+        self._panel(f"🚀 {title}", lines, "\033[95m")
+
+    def flush(self, title: str) -> None:
+        if not self._buffer:
+            return
+        lines: list[str] = []
+        for label, detail in self._buffer:
+            lines.append(label)
+            if detail:
+                lines.append(f"  • {detail}")
+        self._panel(f"🚀 {title}", lines, "\033[95m")
+        self._buffer.clear()
 
 
 def _require_token(explicit_token: str | None) -> str:
@@ -101,9 +150,9 @@ def sync_secrets(args: argparse.Namespace) -> int:
 
     for name, encrypted in encrypted_payloads.items():
         client.put_actions_secret(owner, repo, name, encrypted, public_key["key_id"])
-        print(f"✅ シークレット {name} を同期しました")
+        print(f"✅ Synced secret {name}")
 
-    print(f"🎉 {len(encrypted_payloads)} 件のシークレットを {owner}/{repo} に反映しました")
+    print(f"🎉 Applied {len(encrypted_payloads)} secrets to {owner}/{repo}")
     return 0
 
 
@@ -125,7 +174,7 @@ def _sync_workflows_remote(
 
     reporter = ProgressReporter()
     reporter.stage(
-        "テンプレートアーカイブを展開", f"{owner_template}/{repo_template} → {owner_target}/{repo_target}"
+        "Extract template archive", f"{owner_template}/{repo_template} → {owner_target}/{repo_target}"
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -137,7 +186,7 @@ def _sync_workflows_remote(
             extra_files=extra_files,
         )
         if not written:
-            print("❌ テンプレートアーカイブに .github ディレクトリが含まれていません", file=sys.stderr)
+            print("❌ Template archive does not contain a .github directory", file=sys.stderr)
             return 1
         payloads = []
         new_paths: set[str] = set()
@@ -160,14 +209,14 @@ def _sync_workflows_remote(
                     continue
                 new_dirs.add(ancestor.as_posix())
 
-    reporter.success("テンプレート展開が完了しました")
+    reporter.success("Template extraction completed")
 
-    reporter.stage("ターゲットブランチの解析", target_repo)
+    reporter.stage("Inspect target branch", target_repo)
 
     target_branch = branch or client.get_default_branch(owner_target, repo_target)
     commit_message = commit_message or f"✨ Sync .github directory from {owner_template}/{repo_template}"
 
-    reporter.info(f"{owner_target}/{repo_target}@{target_branch} を取得")
+    reporter.info(f"Fetched {owner_target}/{repo_target}@{target_branch}")
     ref = client.get_ref(owner_target, repo_target, f"heads/{target_branch}")
     base_commit_sha = ref["object"]["sha"]
     base_commit = client.get_git_commit(owner_target, repo_target, base_commit_sha)
@@ -176,7 +225,7 @@ def _sync_workflows_remote(
     tree_entries = []
 
     if clean:
-        reporter.stage("既存の .github 内容をクリーンアップ", "--clean オプションが有効")
+        reporter.stage("Clean existing .github contents", "--clean option active")
         tree = client.get_tree(owner_target, repo_target, base_tree_sha, recursive=True)
         for item in tree.get("tree", []):
             path = item.get("path")
@@ -203,7 +252,7 @@ def _sync_workflows_remote(
         )
 
     if not tree_entries:
-        print("✅ 更新は不要でした。リモートリポジトリは既にテンプレートと一致しています")
+        print("✅ No updates required; remote repository already matches the template")
         return 0
 
     dedup: Dict[tuple[str, str], dict[str, Any]] = {}
@@ -212,7 +261,7 @@ def _sync_workflows_remote(
         dedup[key] = entry
     tree_entries = list(dedup.values())
 
-    reporter.stage("コミットを作成", "新しいツリーをアップロード中")
+    reporter.stage("Create commit", "Uploading new tree")
     tree_sha = client.create_tree(owner_target, repo_target, tree_entries, base_tree=base_tree_sha)["sha"]
     commit = client.create_commit(
         owner_target,
@@ -223,36 +272,37 @@ def _sync_workflows_remote(
     )
     client.update_ref(owner_target, repo_target, target_branch, commit["sha"], force=force)
 
-    reporter.success("コミットを作成しました")
-    reporter.section("更新対象ファイル")
-    for payload in payloads:
-        reporter.item(payload["path"])
+    reporter.success("Commit created")
+    reporter.flush("Sync steps")
+    reporter.list_panel("Updated files", [payload["path"] for payload in payloads])
     reporter.success(
-        f"{owner_target}/{repo_target}@{target_branch} へ {len(payloads)} 件の更新を反映 ({commit['sha'][:7]})"
+        f"Applied {len(payloads)} updates to {owner_target}/{repo_target}@{target_branch} ({commit['sha'][:7]})"
     )
 
     if enable_pages:
-        reporter.stage("GitHub Pages を GitHub Actions に切り替え")
+        reporter.stage("Switch GitHub Pages to GitHub Actions")
         try:
             client.configure_pages_actions(owner_target, repo_target)
         except GitHubError as exc:
-            print(f"⚠️ GitHub Pages の設定に失敗しました: {exc}", file=sys.stderr)
+            print(f"⚠️ Failed to configure GitHub Pages: {exc}", file=sys.stderr)
         else:
-            reporter.success("GitHub Actions デプロイに切り替えました")
+            reporter.success("Switched to GitHub Actions deployment")
             try:
                 pages_info = client.get_pages_info(owner_target, repo_target)
             except GitHubError as exc:
-                print(f"⚠️ GitHub Pages の情報取得に失敗しました: {exc}", file=sys.stderr)
+                print(f"⚠️ Failed to retrieve GitHub Pages info: {exc}", file=sys.stderr)
             else:
                 html_url = pages_info.get("html_url")
                 if html_url:
-                    reporter.stage("リポジトリの Website を更新", html_url)
+                    reporter.stage("Update repository website URL", html_url)
                     try:
                         client.update_repository(owner_target, repo_target, homepage=html_url)
                     except GitHubError as exc:
-                        print(f"⚠️ WebサイトURLの更新に失敗しました: {exc}", file=sys.stderr)
+                        print(f"⚠️ Failed to update website URL: {exc}", file=sys.stderr)
                     else:
-                        reporter.success("Website 欄を更新しました")
+                        reporter.success("Updated repository website field")
+
+    reporter.flush("Finishing touches")
     return 0
 
 
@@ -262,14 +312,16 @@ def sync_workflows(args: argparse.Namespace) -> int:
     owner, repo = parse_repo(args.template_repo)
 
     reporter = ProgressReporter()
-    reporter.stage("テンプレートアーカイブを取得", f"{owner}/{repo}")
+    reporter.stage("Fetch template archive", f"{owner}/{repo}")
     archive = client.download_repository_archive(owner, repo, ref=args.ref)
-    reporter.success("アーカイブのダウンロード完了")
+    reporter.success("Archive download completed")
+    reporter.flush("Preparation")
 
     extra_files = ["index.html"] if args.include_index else None
 
     if args.repo:
-        reporter.stage("リモート同期を開始", args.repo)
+        reporter.stage("Start remote sync", args.repo)
+        reporter.flush("Remote sync kickoff")
         return _sync_workflows_remote(
             client,
             args.template_repo,
@@ -284,7 +336,7 @@ def sync_workflows(args: argparse.Namespace) -> int:
         )
 
     destination = Path(args.destination)
-    reporter.stage("ローカル同期を開始", str(destination))
+    reporter.stage("Start local sync", str(destination))
     written = extract_github_directory(
         archive,
         destination,
@@ -292,10 +344,13 @@ def sync_workflows(args: argparse.Namespace) -> int:
         extra_files=extra_files,
     )
 
-    reporter.section("更新されたファイル")
-    for path in written:
-        reporter.item(path.relative_to(destination).as_posix())
-    reporter.success("ローカルの .github ディレクトリがテンプレートと同期されました")
+    reporter.flush("Sync steps")
+    reporter.list_panel(
+        "Updated files",
+        [path.relative_to(destination).as_posix() for path in written],
+    )
+    reporter.success("Local .github directory synchronized with template")
+    reporter.flush("Results")
     return 0
 
 
