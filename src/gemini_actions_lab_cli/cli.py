@@ -58,6 +58,7 @@ def _sync_workflows_remote(
     commit_message: str | None,
     force: bool,
     enable_pages: bool,
+    extra_files: list[str] | None,
 ) -> int:
     owner_template, repo_template = parse_repo(template_repo)
     owner_target, repo_target = parse_repo(target_repo)
@@ -69,18 +70,21 @@ def _sync_workflows_remote(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        written = extract_github_directory(archive_bytes, tmp_path, clean=True)
+        written = extract_github_directory(
+            archive_bytes,
+            tmp_path,
+            clean=True,
+            extra_files=extra_files,
+        )
         if not written:
             print("❌ テンプレートアーカイブに .github ディレクトリが含まれていません", file=sys.stderr)
             return 1
-        github_root = tmp_path / ".github"
         payloads = []
         new_paths: set[str] = set()
-        new_dirs: set[str] = {".github"}
+        new_dirs: set[str] = set()
         for file_path in written:
-            relative = file_path.relative_to(github_root)
-            posix_path = relative.as_posix()
-            full_path = f".github/{posix_path}"
+            relative = file_path.relative_to(tmp_path)
+            full_path = relative.as_posix()
             mode = "100755" if os.access(file_path, os.X_OK) else "100644"
             payloads.append(
                 {
@@ -173,6 +177,20 @@ def _sync_workflows_remote(
             print(f"⚠️ GitHub Pages の設定に失敗しました: {exc}", file=sys.stderr)
         else:
             print("✅ GitHub Pages を GitHub Actions デプロイに設定しました")
+            try:
+                pages_info = client.get_pages_info(owner_target, repo_target)
+            except GitHubError as exc:
+                print(f"⚠️ GitHub Pages の情報取得に失敗しました: {exc}", file=sys.stderr)
+            else:
+                html_url = pages_info.get("html_url")
+                if html_url:
+                    print(f"🔗 リポジトリのWebサイトURLを {html_url} に更新します...")
+                    try:
+                        client.update_repository(owner_target, repo_target, homepage=html_url)
+                    except GitHubError as exc:
+                        print(f"⚠️ WebサイトURLの更新に失敗しました: {exc}", file=sys.stderr)
+                    else:
+                        print("✅ リポジトリのWebサイト欄を更新しました")
     return 0
 
 
@@ -184,6 +202,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
     print(f"📡 テンプレートリポジトリ {owner}/{repo} からアーカイブを取得します...")
     archive = client.download_repository_archive(owner, repo, ref=args.ref)
     print("✅ アーカイブのダウンロードが完了しました")
+
+    extra_files = ["index.html"] if args.include_index else None
 
     if args.repo:
         print(
@@ -199,11 +219,17 @@ def sync_workflows(args: argparse.Namespace) -> int:
             commit_message=args.message,
             force=args.force,
             enable_pages=args.enable_pages_actions,
+            extra_files=extra_files,
         )
 
     destination = Path(args.destination)
     print(f"🗂️ ローカル {destination} へ展開しています...")
-    written = extract_github_directory(archive, destination, clean=args.clean)
+    written = extract_github_directory(
+        archive,
+        destination,
+        clean=args.clean,
+        extra_files=extra_files,
+    )
 
     print("📦 更新されたファイル一覧:")
     for path in written:
@@ -288,6 +314,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--enable-pages-actions",
         action="store_true",
         help="Also configure GitHub Pages to use GitHub Actions for builds when syncing to a remote repository",
+    )
+    workflows_parser.add_argument(
+        "--include-index",
+        action="store_true",
+        help="Copy the template repository root index.html alongside the .github directory",
     )
     workflows_parser.set_defaults(func=sync_workflows)
 

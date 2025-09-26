@@ -155,6 +155,14 @@ class GitHubClient:
             else:
                 raise
 
+    def get_pages_info(self, owner: str, repo: str) -> Mapping[str, Any]:
+        url = f"{self.api_url}/repos/{owner}/{repo}/pages"
+        return self._request("GET", url).json()
+
+    def update_repository(self, owner: str, repo: str, **fields: Any) -> Mapping[str, Any]:
+        url = f"{self.api_url}/repos/{owner}/{repo}"
+        return self._request("PATCH", url, json=fields).json()
+
 
 def encrypt_secret(public_key: str, value: str) -> str:
     """Encrypt ``value`` using the repository ``public_key``."""
