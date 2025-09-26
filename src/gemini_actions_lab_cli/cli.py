@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, Iterable
+
+try:  # Optional dependency for banner rendering
+    import pyfiglet  # type: ignore
+except ImportError:  # pragma: no cover - falls back to plain text banner
+    pyfiglet = None
 
 from .env_loader import apply_env_file, load_env_file
 from .github_api import GitHubClient, GitHubError, encrypt_secret, parse_repo
@@ -15,6 +22,59 @@ from .workflows import WorkflowSyncError, extract_github_directory
 
 DEFAULT_TEMPLATE_REPO = "Sunwood-ai-labsII/gemini-actions-lab"
 DEFAULT_SECRETS_FILE = ".secrets.env"
+
+_INTRO_SHOWN = False
+DEFAULT_BANNER_TEXT = "Gemini Actions Lab CLI"
+
+
+def _render_ascii_banner(text: str) -> list[str]:
+    if pyfiglet is not None:
+        rendered = pyfiglet.figlet_format(text, font="slant")
+        return [line for line in rendered.splitlines() if line.strip()]
+    return [text.upper()]
+
+
+BANNER_LINES = _render_ascii_banner(DEFAULT_BANNER_TEXT)
+
+
+def _render_intro_animation() -> None:
+    global _INTRO_SHOWN
+    if _INTRO_SHOWN:
+        return
+    colors = ["\033[95m", "\033[94m", "\033[96m", "\033[36m", "\033[92m", "\033[32m"]
+    for line, color in zip(BANNER_LINES, itertools.cycle(colors)):
+        print(f"{color}{line}\033[0m", flush=True)
+        time.sleep(0.04)
+    print("\033[92m✨ GEMINI ACTIONS LAB CLI ✨\033[0m\n")
+    _INTRO_SHOWN = True
+
+
+class ProgressReporter:
+    def __init__(self) -> None:
+        self._spinner = itertools.cycle([
+            "\033[95m◆\033[0m",
+            "\033[94m◇\033[0m",
+            "\033[96m◆\033[0m",
+            "\033[36m◇\033[0m",
+        ])
+
+    def stage(self, title: str, detail: str | None = None) -> None:
+        badge = next(self._spinner)
+        print(f"{badge} {title}")
+        if detail:
+            print(f"    ↳ {detail}")
+
+    def success(self, message: str) -> None:
+        print(f"✔ {message}")
+
+    def info(self, message: str) -> None:
+        print(f"… {message}")
+
+    def section(self, title: str) -> None:
+        print(f"\n=== {title} ===")
+
+    def item(self, message: str) -> None:
+        print(f"  • {message}")
 
 
 def _require_token(explicit_token: str | None) -> str:
@@ -63,9 +123,9 @@ def _sync_workflows_remote(
     owner_template, repo_template = parse_repo(template_repo)
     owner_target, repo_target = parse_repo(target_repo)
 
-    print(
-        f"📥 テンプレート {owner_template}/{repo_template} を展開し、"
-        f"{owner_target}/{repo_target} へ適用する準備をしています..."
+    reporter = ProgressReporter()
+    reporter.stage(
+        "テンプレートアーカイブを展開", f"{owner_template}/{repo_template} → {owner_target}/{repo_target}"
     )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -100,12 +160,14 @@ def _sync_workflows_remote(
                     continue
                 new_dirs.add(ancestor.as_posix())
 
-    print("🧹 新しいファイルセットを生成しています...")
+    reporter.success("テンプレート展開が完了しました")
+
+    reporter.stage("ターゲットブランチの解析", target_repo)
 
     target_branch = branch or client.get_default_branch(owner_target, repo_target)
     commit_message = commit_message or f"✨ Sync .github directory from {owner_template}/{repo_template}"
 
-    print(f"🔍 対象リポジトリ {owner_target}/{repo_target} の {target_branch} ブランチを取得中...")
+    reporter.info(f"{owner_target}/{repo_target}@{target_branch} を取得")
     ref = client.get_ref(owner_target, repo_target, f"heads/{target_branch}")
     base_commit_sha = ref["object"]["sha"]
     base_commit = client.get_git_commit(owner_target, repo_target, base_commit_sha)
@@ -114,7 +176,7 @@ def _sync_workflows_remote(
     tree_entries = []
 
     if clean:
-        print("🧽 `--clean` 指定のため、既存の .github 配下をクリーンアップします...")
+        reporter.stage("既存の .github 内容をクリーンアップ", "--clean オプションが有効")
         tree = client.get_tree(owner_target, repo_target, base_tree_sha, recursive=True)
         for item in tree.get("tree", []):
             path = item.get("path")
@@ -150,7 +212,7 @@ def _sync_workflows_remote(
         dedup[key] = entry
     tree_entries = list(dedup.values())
 
-    print("🪄 新しいツリーを作成し、コミットを準備しています...")
+    reporter.stage("コミットを作成", "新しいツリーをアップロード中")
     tree_sha = client.create_tree(owner_target, repo_target, tree_entries, base_tree=base_tree_sha)["sha"]
     commit = client.create_commit(
         owner_target,
@@ -161,22 +223,22 @@ def _sync_workflows_remote(
     )
     client.update_ref(owner_target, repo_target, target_branch, commit["sha"], force=force)
 
-    print("📦 リモートリポジトリで更新されたファイル一覧:")
+    reporter.success("コミットを作成しました")
+    reporter.section("更新対象ファイル")
     for payload in payloads:
-        print(f" - {payload['path']}")
-    print(
-        f"🚀 {owner_target}/{repo_target}@{target_branch} に "
-        f"{len(payloads)} 件のファイルをコミットしました ({commit['sha'][:7]})"
+        reporter.item(payload["path"])
+    reporter.success(
+        f"{owner_target}/{repo_target}@{target_branch} へ {len(payloads)} 件の更新を反映 ({commit['sha'][:7]})"
     )
 
     if enable_pages:
-        print("🌐 GitHub Pages のビルドソースを GitHub Actions に設定しています...")
+        reporter.stage("GitHub Pages を GitHub Actions に切り替え")
         try:
             client.configure_pages_actions(owner_target, repo_target)
         except GitHubError as exc:
             print(f"⚠️ GitHub Pages の設定に失敗しました: {exc}", file=sys.stderr)
         else:
-            print("✅ GitHub Pages を GitHub Actions デプロイに設定しました")
+            reporter.success("GitHub Actions デプロイに切り替えました")
             try:
                 pages_info = client.get_pages_info(owner_target, repo_target)
             except GitHubError as exc:
@@ -184,13 +246,13 @@ def _sync_workflows_remote(
             else:
                 html_url = pages_info.get("html_url")
                 if html_url:
-                    print(f"🔗 リポジトリのWebサイトURLを {html_url} に更新します...")
+                    reporter.stage("リポジトリの Website を更新", html_url)
                     try:
                         client.update_repository(owner_target, repo_target, homepage=html_url)
                     except GitHubError as exc:
                         print(f"⚠️ WebサイトURLの更新に失敗しました: {exc}", file=sys.stderr)
                     else:
-                        print("✅ リポジトリのWebサイト欄を更新しました")
+                        reporter.success("Website 欄を更新しました")
     return 0
 
 
@@ -199,16 +261,15 @@ def sync_workflows(args: argparse.Namespace) -> int:
     client = GitHubClient(token=token, api_url=args.api_url)
     owner, repo = parse_repo(args.template_repo)
 
-    print(f"📡 テンプレートリポジトリ {owner}/{repo} からアーカイブを取得します...")
+    reporter = ProgressReporter()
+    reporter.stage("テンプレートアーカイブを取得", f"{owner}/{repo}")
     archive = client.download_repository_archive(owner, repo, ref=args.ref)
-    print("✅ アーカイブのダウンロードが完了しました")
+    reporter.success("アーカイブのダウンロード完了")
 
     extra_files = ["index.html"] if args.include_index else None
 
     if args.repo:
-        print(
-            f"🌐 リモートリポジトリ {args.repo} に .github ディレクトリを同期します"
-        )
+        reporter.stage("リモート同期を開始", args.repo)
         return _sync_workflows_remote(
             client,
             args.template_repo,
@@ -223,7 +284,7 @@ def sync_workflows(args: argparse.Namespace) -> int:
         )
 
     destination = Path(args.destination)
-    print(f"🗂️ ローカル {destination} へ展開しています...")
+    reporter.stage("ローカル同期を開始", str(destination))
     written = extract_github_directory(
         archive,
         destination,
@@ -231,10 +292,10 @@ def sync_workflows(args: argparse.Namespace) -> int:
         extra_files=extra_files,
     )
 
-    print("📦 更新されたファイル一覧:")
+    reporter.section("更新されたファイル")
     for path in written:
-        print(f" - {path.relative_to(destination)}")
-    print("🚀 ローカルの .github ディレクトリがテンプレートと同期されました")
+        reporter.item(path.relative_to(destination).as_posix())
+    reporter.success("ローカルの .github ディレクトリがテンプレートと同期されました")
     return 0
 
 
@@ -332,6 +393,7 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
+    _render_intro_animation()
     try:
         return args.func(args)
     except (GitHubError, WorkflowSyncError, FileNotFoundError, ValueError) as exc:
