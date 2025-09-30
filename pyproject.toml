@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gemini-actions-lab-cli"
-version = "0.1.0"
+version = "0.7.1"
 description = "Command line helpers for Gemini Actions Lab repositories"
 readme = "README.md"
 authors = [
