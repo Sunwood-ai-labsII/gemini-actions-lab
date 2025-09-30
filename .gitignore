@@ -5,6 +5,8 @@ discord-issue-bot/.env
 __pycache__/
 **/__pycache__/**
 *.pyc
+*.egg-info/
+**/*.egg-info/
 
 # Node/Yarn
 node_modules/
@@ -15,3 +17,5 @@ build/
 
 discord-issue-bot/data/history.json
 discord-issue-bot/uv.lock
+.env.actions
+uv.lock
