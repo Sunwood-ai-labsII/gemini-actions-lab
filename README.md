@@ -9,6 +9,7 @@
 <a href="./README.ja.md"><img src="https://img.shields.io/badge/日本語-Readme-red?style=for-the-badge&logo=github&logoColor=white" alt="日本語" /></a>
 <img src="https://img.shields.io/badge/GitHub%20Actions-AI-blue?style=for-the-badge&logo=github-actions&logoColor=white" alt="GitHub Actions" />
 <img src="https://img.shields.io/badge/Gemini-AI-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white" alt="Gemini" />
+[![PyPI](https://img.shields.io/pypi/v/gemini-actions-lab-cli?style=for-the-badge)](https://pypi.org/project/gemini-actions-lab-cli/)
 
 [![💬 Gemini CLI](https://github.com/Sunwood-ai-labsII/gemini-actions-lab/actions/workflows/gemini-cli.yml/badge.svg)](https://github.com/Sunwood-ai-labsII/gemini-actions-lab/actions/workflows/gemini-cli.yml)
 
@@ -110,7 +111,13 @@ AIアシスタントが利用可能なコマンドと使用例を返信します
 
 ### インストール
 
-`uv` を使って依存関係を同期します。
+PyPI から直接インストールできます。
+
+```bash
+pip install gemini-actions-lab-cli
+```
+
+ローカル開発でソースを同期したい場合は `uv` によるセットアップもサポートしています。
 
 ```bash
 uv sync
@@ -121,7 +128,7 @@ uv sync
 `.secrets.env`（任意のファイルを `--env-file` で指定可能）に定義した値を、リポジトリシークレットへ一括で作成・更新します。
 
 ```bash
-uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
+gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 ```
 
 - コマンド実行ディレクトリの `.env` ファイルは自動的に読み込まれ、`GITHUB_TOKEN` など CLI 実行に必要な環境変数を設定できます。
@@ -133,13 +140,15 @@ uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 よく使う同期コマンドは下記のとおりです（Pages 連携とトップページのコピー込み）。
 
 ```bash
-uv run gal sync-workflows \
+gal sync-workflows \
   --repo Sunwood-ai-labs/demo-001 \
   --destination . \
   --clean \
   --enable-pages-actions \
   --include-index
 ```
+
+> `uv run` を利用して開発用に実行する場合は、`uv run gal ...` と置き換えてください。
 
 オプションの詳細やその他のユースケースは `src/README.md` を参照してください。
 
