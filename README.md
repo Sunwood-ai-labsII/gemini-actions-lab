@@ -30,6 +30,8 @@
 
 ## 🤖 ワークフロー概要
 
+![](docs/gal-architecture.png)
+
 このリポジトリには、以下のGitHub Actionsワークフローが含まれています（詳細は [.github/workflows/architecture.md](.github/workflows/architecture.md) を参照）：
 
 - `gemini-cli.yml`: 英語CLI。Issue/PR/コメント/手動でAIコマンドを実行
