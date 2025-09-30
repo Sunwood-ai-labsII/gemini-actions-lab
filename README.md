@@ -102,6 +102,47 @@ AIアシスタントが利用可能なコマンドと使用例を返信します
 
 ---
 
+## 🛠️ gemini-actions-lab CLI
+
+リポジトリに付属する `gemini-actions-lab-cli`（エイリアス: `gal`）を使うと、シークレット同期やテンプレートワークフローの取得をコマンド一発で実行できます。
+
+### インストール
+
+`uv` を使って依存関係を同期します。
+
+```bash
+uv sync
+```
+
+### シークレットの同期
+
+`.secrets.env`（任意のファイルを `--env-file` で指定可能）に定義した値を、リポジトリシークレットへ一括で作成・更新します。
+
+```bash
+uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
+```
+
+- コマンド実行ディレクトリの `.env` ファイルは自動的に読み込まれ、`GITHUB_TOKEN` など CLI 実行に必要な環境変数を設定できます。
+- リポジトリへ同期したい secrets は `.secrets.env` に分離してください（任意のファイルを `--env-file` で指定可）。
+- `GITHUB_TOKEN` 環境変数、または `--token` オプションで GitHub の個人アクセストークンを指定してください。
+
+### 🚀 クイックスタート
+
+よく使う同期コマンドは下記のとおりです（Pages 連携とトップページのコピー込み）。
+
+```bash
+uv run gal sync-workflows \
+  --repo Sunwood-ai-labs/demo-001 \
+  --destination . \
+  --clean \
+  --enable-pages-actions \
+  --include-index
+```
+
+オプションの詳細やその他のユースケースは `src/README.md` を参照してください。
+
+---
+
 ## 📁 ディレクトリ構造
 
 ```

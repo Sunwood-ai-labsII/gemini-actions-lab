@@ -42,16 +42,13 @@ jobs:
           MAX_DIFF_LINES: "${{ env.MAX_DIFF_LINES }}"
         run: |
           set -euo pipefail
-
           TAG="${TAG_NAME}"
           git fetch --tags --prune --force >/dev/null 2>&1 || true
-
           # Try to get previous released tag (from Releases). Fallback to previous git tag reachable from current.
           PREV_RELEASE_TAG="$(gh release list --limit 100 --json tagName --jq 'map(.tagName) | map(select(. != env.TAG)) | .[0]' || true)"
           if [[ -z "${PREV_RELEASE_TAG}" || "${PREV_RELEASE_TAG}" == "null" ]]; then
             PREV_RELEASE_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
           fi
-
           BASE_RANGE=""
           COMPARE_URL=""
           if [[ -n "${PREV_RELEASE_TAG}" ]]; then
@@ -61,7 +58,6 @@ jobs:
             # Initial release: include history up to the tag commit
             BASE_RANGE="${TAG}"
           fi
-
           # Collect data (trim to keep prompt concise)
           COMMITS="$(git log --no-merges --pretty=format:'- %s (%h) by %an' ${BASE_RANGE} | head -n ${MAX_COMMITS} || true)"
           CHANGED_FILES="$( ( [[ -n "${PREV_RELEASE_TAG}" ]] && git diff --name-only ${BASE_RANGE} || git ls-tree -r --name-only HEAD ) | sed 's/^/- /' | head -n ${MAX_FILES} || true)"
@@ -78,7 +74,6 @@ jobs:
             DIFF_CONTENT="$(git show --format="" --name-status HEAD | head -n ${MAX_DIFF_LINES} || true)"
             DIFF_STATS="$(git ls-tree -r --name-only HEAD | wc -l) files in initial release"
           fi
-
           {
             echo "tag=${TAG}"
             echo "prev_tag=${PREV_RELEASE_TAG}"
@@ -99,7 +94,6 @@ jobs:
             echo "${DIFF_CONTENT}"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-
           echo "✅ Collected context:"
           echo "  - Commits: $(echo "${COMMITS}" | wc -l) entries"
           echo "  - Files: $(echo "${CHANGED_FILES}" | wc -l) entries"
@@ -290,30 +284,23 @@ jobs:
             { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
           prompt: |
             あなたはリリースノート作成のエキスパートです。以下の情報から、日本語で読みやすいMarkdownのリリースノートを作成してください。
-
             # コンテキスト
             - リポジトリ: ${{ github.repository }}
             - リリースタグ: ${{ steps.ctx.outputs.tag }}
             - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
             - 比較URL: ${{ steps.ctx.outputs.compare_url }}
-
             # 変更統計
             ${{ steps.ctx.outputs.diff_stats }}
-
             # コード差分（実際の変更内容）
             ```diff
             ${{ steps.ctx.outputs.diff_content }}
             ```
-
             # 変更コミット（抜粋）
             ${{ steps.ctx.outputs.commits }}
-
             # 変更ファイル（抜粋）
             ${{ steps.ctx.outputs.files }}
-
             # コントリビューター（抜粋）
             ${{ steps.ctx.outputs.contributors }}
-
             # 執筆方針
             - **コード差分を必ず参照**して、実際の変更内容を正確に把握してからリリースノートを作成する
             - 見出しと箇条書きを用いて簡潔に
@@ -323,34 +310,232 @@ jobs:
             - 新機能、バグ修正、改善点を差分から具体的に抽出
             - 最後に比較URLを記載
             - 出力はMarkdownのみ（余計な前置きや後書き、コードフェンスは不要）
-
             # 期待するMarkdownの構成例
             # ${{ steps.ctx.outputs.tag }} ～このリリースノートの内容が分かるようなタイトル～
             
             ## ✨ Highlights
             - 主要な変更点の要約（コード差分から判断）
-
             ## 💥 Breaking Changes
             - 重大な変更点（API変更、削除された機能等をコード差分から検出）
-
             ## 🛠 変更一覧
             ### ✨ Features (feat)
             - 新機能の詳細（コード差分から判断）
-
             ### 🐛 Bug Fixes (fix)  
             - 修正内容の詳細（コード差分から判断）
-
             ### 📚 Documentation (docs)
             - ドキュメント更新内容
-
             ### 🔧 Maintenance (chore/refactor)
             - リファクタリングやメンテナンス内容
-
             ## 👥 Contributors
             - ユーザー名一覧（抜粋）
-
             ---
             比較: ${{ steps.ctx.outputs.compare_url }}
+
+      # 🆕 新規追加: Zenn記事生成ステップ
+      - name: Generate Zenn article with Gemini
+        id: zenn_article
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          REPOSITORY: "${{ github.repository }}"
+          TAG_NAME: "${{ steps.ctx.outputs.tag }}"
+          PREV_TAG: "${{ steps.ctx.outputs.prev_tag }}"
+          COMPARE_URL: "${{ steps.ctx.outputs.compare_url }}"
+          COMMITS: "${{ steps.ctx.outputs.commits }}"
+          CHANGED_FILES: "${{ steps.ctx.outputs.files }}"
+          CONTRIBUTORS: "${{ steps.ctx.outputs.contributors }}"
+          DIFF_STATS: "${{ steps.ctx.outputs.diff_stats }}"
+          DIFF_CONTENT: "${{ steps.ctx.outputs.diff_content }}"
+          RELEASE_NOTES: "${{ steps.gemini.outputs.summary }}"
+          HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
+          HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
+        with:
+          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
+          gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
+          gcp_project_id: "${{ vars.GOOGLE_CLOUD_PROJECT }}"
+          gcp_location: "${{ vars.GOOGLE_CLOUD_LOCATION }}"
+          gcp_service_account: "${{ vars.SERVICE_ACCOUNT_EMAIL }}"
+          use_vertex_ai: "${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}"
+          use_gemini_code_assist: "${{ vars.GOOGLE_GENAI_USE_GCA }}"
+          settings: |
+            { "debug": false, "maxSessionTurns": 10, "telemetry": { "enabled": false, "target": "gcp" } }
+          prompt: |
+            あなたはZennの技術記事作成のエキスパートです。以下の情報から、リリースノートを元にしたZenn記事を作成してください。
+            
+            # コンテキスト
+            - リポジトリ: ${{ github.repository }}
+            - リリースタグ: ${{ steps.ctx.outputs.tag }}
+            - 前リリースタグ: ${{ steps.ctx.outputs.prev_tag }}
+            - 比較URL: ${{ steps.ctx.outputs.compare_url }}
+            - ヘッダー画像URL: ${{ steps.header.outputs.raw_url }}
+            - ヘッダー画像ファイル名: ${{ steps.header.outputs.image_name }}
+            
+            # 生成済みリリースノート
+            ${{ steps.gemini.outputs.summary }}
+            
+            # 変更統計
+            ${{ steps.ctx.outputs.diff_stats }}
+            
+            # コード差分（実際の変更内容）
+            ```diff
+            ${{ steps.ctx.outputs.diff_content }}
+            ```
+            
+            # 変更コミット（抜粋）
+            ${{ steps.ctx.outputs.commits }}
+            
+            # 変更ファイル（抜粋）
+            ${{ steps.ctx.outputs.files }}
+            
+            # 執筆方針
+            - **リポジトリ名からプロジェクト名を推測し、適切なタイトルを作成する**
+            - **topics配列には技術スタック、言語、フレームワークなど関連する技術キーワードを4つ程度設定する**
+            - **emojiは内容に応じて適切なものを選択する**
+            - **コード差分を分析し、技術的な変更点を詳しく説明する**
+            - **開発者向けに具体的で実用的な内容にする**
+            - **リリースノートの内容をベースに、より詳細で読みやすい技術記事として展開する**
+            - **ヘッダー画像URL（${{ steps.header.outputs.raw_url }}）があれば、frontmatterの直後にMarkdownで表示する**
+            
+            # 出力フォーマット
+            **必ず記事全体を<article>タグで囲んで出力してください：**
+            
+            <article>
+            ---
+            title: "【リリースノート】[プロジェクト名] ${{ steps.ctx.outputs.tag }} - [主要な変更点を一言で]"
+            emoji: "🚀"
+            type: "tech"
+            topics: ['技術1', '技術2', '技術3', '技術4']
+            published: true
+            ---
+            
+            [ヘッダー画像がある場合: ![image_name](image_url)]
+            
+            ## はじめに
+            [プロジェクトの簡単な説明とリリースの概要]
+            
+            ## 主な変更点
+            [リリースノートを元にした詳細な説明]
+            
+            ## 技術的な詳細
+            [コード差分から読み取れる技術的な変更点の詳細]
+            
+            ### 新機能
+            [新機能の詳細説明]
+            
+            ### 改善点
+            [改善点の詳細説明]
+            
+            ### バグ修正
+            [バグ修正の詳細説明]
+            
+            ## まとめ
+            [今回のリリースのまとめと今後の展望]
+            
+            ---
+            
+            📚 **参考リンク**
+            - [リポジトリ](https://github.com/${{ github.repository }})
+            - [比較表示](${{ steps.ctx.outputs.compare_url }})
+            - [リリースページ](https://github.com/${{ github.repository }}/releases/tag/${{ steps.ctx.outputs.tag }})
+            </article>
+            
+            **重要**: 必ず<article>開始タグから</article>終了タグまでで記事全体を囲んでください。
+
+      - name: Checkout Zenn repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'Sunwood-ai-labs/Zenn'
+          token: ${{ secrets.ZENN_REPO_TOKEN }}
+          path: 'zenn-repo'
+
+      - name: Create Zenn article file
+        env:
+          TAG: "${{ steps.ctx.outputs.tag }}"
+          REPOSITORY: "${{ github.repository }}"
+          ZENN_CONTENT: "${{ steps.zenn_article.outputs.summary }}"
+          GITHUB_TOKEN: "${{ secrets.ZENN_REPO_TOKEN }}"
+          HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
+          HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
+        run: |
+          set -euo pipefail
+          # リポジトリ名からファイル名を生成
+          REPO_NAME="${REPOSITORY##*/}"  # Remove owner/ prefix
+          TAG_CLEAN="${TAG#v}"  # Remove 'v' prefix if present
+          TIMESTAMP=$(date +%Y%m%d)
+          # ファイル名（拡張子を除く）はZenn記事のslugとなるため、制約に合わせて生成
+          RAW_SLUG="${TIMESTAMP}-${REPO_NAME}-${TAG_CLEAN}-release"
+          RAW_SLUG="${RAW_SLUG,,}"  # 小文字化
+          # 使用可能文字（a-z0-9_-）以外をハイフンに置換し、ハイフン・アンダースコアの連続を整理
+          SLUG=$(echo "${RAW_SLUG}" \
+            | sed 's/[^a-z0-9_-]/-/g' \
+            | sed -E 's/-{2,}/-/g' \
+            | sed -E 's/_{2,}/_/g' \
+            | sed -E 's/^[-_]+//; s/[-_]+$//')
+          # 生成結果が空の場合は日付ベースのslugを使用
+          if [[ -z "${SLUG}" ]]; then
+            SLUG="${TIMESTAMP}-release"
+          fi
+          # 最大文字数（50文字）を超える場合はトリミングし、末尾のハイフン/アンダースコアを除去
+          if [[ ${#SLUG} -gt 50 ]]; then
+            SLUG="${SLUG:0:50}"
+            SLUG=$(echo "${SLUG}" | sed -E 's/[-_]+$//')
+          fi
+          # 最小文字数（12文字）に満たない場合は許容文字でパディング
+          while [[ ${#SLUG} -lt 12 ]]; do
+            SLUG="${SLUG}x"
+          done
+          # 最終的なslugが制約を満たすか検証
+          if [[ ! "${SLUG}" =~ ^[a-z0-9_-]{12,50}$ ]]; then
+            echo "生成されたslug '${SLUG}' が制約を満たしません" >&2
+            exit 1
+          fi
+          FILENAME="${SLUG}.md"
+          FILEPATH="zenn-repo/articles/${FILENAME}"
+          echo "Creating Zenn article: ${FILEPATH}"
+          
+          # articlesディレクトリが存在しない場合は作成
+          mkdir -p "zenn-repo/articles"
+          
+          # Zenn記事を作成（<article>タグから中身を抽出）
+          if echo "${ZENN_CONTENT}" | grep -q '<article>'; then
+            # <article>タグが存在する場合は中身を抽出
+            # 最初の<article>から最後の</article>までを抽出（貪欲マッチング）
+            echo "${ZENN_CONTENT}" | perl -0777 -pe 's/^.*?<article>\s*(.*)\s*<\/article>.*$/\1/s' > "${FILEPATH}"
+            echo "✅ Created Zenn article: ${FILENAME} (extracted from article tags)"
+          else
+            # <article>タグが存在しない場合はそのまま使用
+            echo "${ZENN_CONTENT}" > "${FILEPATH}"
+            echo "✅ Created Zenn article: ${FILENAME} (used as-is)"
+          fi
+          echo "File size: $(wc -c < "${FILEPATH}") bytes"
+          
+          # 出力変数にファイル名を設定
+          echo "zenn_filename=${FILENAME}" >> "$GITHUB_OUTPUT"
+          echo "zenn_filepath=${FILEPATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push Zenn article
+        env:
+          TAG: "${{ steps.ctx.outputs.tag }}"
+          REPOSITORY: "${{ github.repository }}"
+          GITHUB_TOKEN: "${{ secrets.ZENN_REPO_TOKEN }}"
+        run: |
+          set -euo pipefail
+          cd zenn-repo
+          
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add articles/
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit \
+              -m "📝 Add release article for ${REPOSITORY} ${TAG}" \
+              -m "Generated from: ${REPOSITORY}/releases/tag/${TAG}" \
+              -m "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+            echo "✅ Committed and pushed Zenn article"
+          fi
 
       - name: Write notes to file (with header image)
         env:
