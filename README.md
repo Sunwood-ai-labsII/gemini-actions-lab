@@ -1,6 +1,6 @@
 <div align="center">
 
-![Image](docs/gemini-actions-labs.png)
+![Image](https://raw.githubusercontent.com/Sunwood-ai-labsII/gemini-actions-lab/refs/heads/main/docs/gemini-actions-labs.png)
 
 
 # Gemini Actions Lab
@@ -31,7 +31,7 @@
 
 ## 🤖 ワークフロー概要
 
-![](docs/gal-architecture.png)
+![](https://raw.githubusercontent.com/Sunwood-ai-labsII/gemini-actions-lab/refs/heads/main/docs/gal-architecture.png)
 
 このリポジトリには、以下のGitHub Actionsワークフローが含まれています（詳細は [.github/workflows/architecture.md](.github/workflows/architecture.md) を参照）：
 
