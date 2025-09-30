@@ -1,0 +1,273 @@
+<mxfile host="65bd71144e">
+    <diagram name="Gemini Actions Lab - Complete Architecture" id="gemini-complete">
+        <mxGraphModel dx="946" dy="849" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Gemini Actions Lab - Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="60" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-zone" value="External Input" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673A6;strokeWidth=2;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="140" width="280" height="340" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-discord" value="Discord Bot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="190" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-discord-desc" value="- Slash commands&lt;br&gt;- Template support" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="210" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-voice" value="Realtime API App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="260" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-voice-desc" value="- Voice input&lt;br&gt;- Real-time transcription" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="280" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-ui" value="Web UI / CLI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="330" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-ui-desc" value="- Direct issue creation&lt;br&gt;- Manual triggers" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="350" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-github" value="GitHub Events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="400" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="input-github-desc" value="- PR events&lt;br&gt;- Tag creation" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="420" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="repo-zone" value="GitHub Repository" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;strokeWidth=2;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="140" width="280" height="340" as="geometry"/>
+                </mxCell>
+                <mxCell id="repo-issues" value="Issues" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="190" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="repo-prs" value="Pull Requests" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="260" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="repo-releases" value="Releases" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="330" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="repo-code" value="Code Repository" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="400" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="actions-zone" value="GitHub Actions" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#232F3E;strokeColor=#232F3E;strokeWidth=2;fontSize=14;fontStyle=1;fontColor=#FFFFFF;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="140" width="340" height="650" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow1-container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4B612C;strokeColor=#4B612C;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="190" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow1-title" value="gemini-cli" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#FFFFFF;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="190" width="200" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow1-desc" value="CLI Interface&lt;br&gt;- Code modification&lt;br&gt;- Question answering" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#FFFFFF;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="220" width="250" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow2-container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4B612C;strokeColor=#4B612C;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="320" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow2-title" value="PR Review (Multi-Persona)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#FFFFFF;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="320" width="250" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow2-desc" value="Automated Review&lt;br&gt;- Kozaki (Product)&lt;br&gt;- Onizuka (Engineering)&lt;br&gt;- Yukimura (UX/UI)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#FFFFFF;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="350" width="250" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow3-container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4B612C;strokeColor=#4B612C;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="450" width="280" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow3-title" value="gemini-release-notes" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#FFFFFF;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="450" width="250" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow3-desc" value="Release Automation&lt;br&gt;- Header image (Imagen 4)&lt;br&gt;- Release notes&lt;br&gt;- Zenn article generation&lt;br&gt;- Commit to Zenn repo" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#FFFFFF;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="480" width="250" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow4-container" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4B612C;strokeColor=#4B612C;strokeWidth=1;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="600" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow4-title" value="static-site" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#FFFFFF;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="600" width="250" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow4-desc" value="Pages Deployment&lt;br&gt;- Repository content&lt;br&gt;- Automatic update" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#FFFFFF;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="840" y="630" width="250" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="ai-zone" value="AI Services" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="140" width="300" height="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="ai-gemini" value="Gemini 2.5 Pro" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="190" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ai-realtime" value="Realtime API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="260" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ai-imagen" value="Imagen 4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="330" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ai-mcp" value="MCP Servers&lt;br&gt;(GitHub / Imagen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="400" width="240" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-zone" value="Outputs" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="520" width="300" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-comments" value="PR/Issue Comments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="570" width="240" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-commits" value="Code Commits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="625" width="240" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-release" value="Release Notes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="680" width="240" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="output-pages" value="GitHub Pages" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="1250" y="735" width="240" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-output-zone" value="External Publishing" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="560" width="280" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-zenn" value="Zenn Repository" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="610" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-zenn-desc" value="- Article auto-publish&lt;br&gt;- Release notes sync" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="480" y="630" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-pages" value="GitHub Pages" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#232F3E;strokeWidth=2;fontSize=12;fontColor=#232F3E;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="680" width="220" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="external-pages-desc" value="- Public website&lt;br&gt;- Auto-deployment" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;spacingLeft=10;" parent="1" vertex="1">
+                    <mxGeometry x="480" y="700" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-discord-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#9673A6;" parent="1" source="input-discord" target="repo-issues" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-voice-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#9673A6;" parent="1" source="input-voice" target="repo-issues" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="285"/>
+                            <mxPoint x="400" y="215"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-ui-repo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#9673A6;" parent="1" source="input-ui" target="repo-issues" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="355"/>
+                            <mxPoint x="400" y="215"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-github-pr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#9673A6;" parent="1" source="input-github" target="repo-prs" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-issue-wf1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#D79B00;" parent="1" source="repo-issues" target="workflow1-container" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-pr-wf2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#D79B00;" parent="1" source="repo-prs" target="workflow2-container" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-release-wf3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#D79B00;" parent="1" source="repo-releases" target="workflow3-container" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="760" y="355"/>
+                            <mxPoint x="760" y="510"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-code-wf4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#D79B00;" parent="1" source="repo-code" target="workflow4-container" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="760" y="425"/>
+                            <mxPoint x="760" y="650"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf1-gemini" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#146EB4;exitPerimeter=0;" parent="1" source="workflow1-container" target="ai-gemini" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1170" y="220"/>
+                            <mxPoint x="1170" y="215"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf1-realtime" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#146EB4;exitPerimeter=0;" parent="1" source="workflow1-container" target="ai-realtime" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1170" y="260"/>
+                            <mxPoint x="1170" y="285"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf2-gemini" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#146EB4;" parent="1" source="workflow2-container" target="ai-gemini" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1170" y="370"/>
+                            <mxPoint x="1170" y="215"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf3-gemini" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#146EB4;exitPerimeter=0;" parent="1" source="workflow3-container" target="ai-gemini" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1170" y="486"/>
+                            <mxPoint x="1170" y="215"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf3-imagen" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#146EB4;exitPerimeter=0;" parent="1" source="workflow3-container" target="ai-imagen" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn-wf1-comment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#759C3E;dashed=1;exitPerimeter=0;" parent="1" source="workflow1-container" target="output-comments" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1110" y="270"/>
+                            <mxPoint x="1160" y="270"/>
+                            <mxPoint x="1160" y="590"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf1-commit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.85;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#759C3E;dashed=1;exitPerimeter=0;" parent="1" source="workflow1-container" target="output-commits" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1110" y="270"/>
+                            <mxPoint x="1200" y="270"/>
+                            <mxPoint x="1200" y="645"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf2-comment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#759C3E;dashed=1;exitPerimeter=0;" parent="1" source="workflow2-container" target="output-comments" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1200" y="395"/>
+                            <mxPoint x="1200" y="590"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf3-release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#759C3E;dashed=1;exitPerimeter=0;dashPattern=1 2;" parent="1" source="workflow3-container" target="output-release" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1150" y="540"/>
+                            <mxPoint x="1150" y="660"/>
+                            <mxPoint x="1200" y="660"/>
+                            <mxPoint x="1200" y="700"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf4-pages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#759C3E;dashed=1;exitPerimeter=0;dashPattern=1 4;" parent="1" source="workflow4-container" target="output-pages" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1160" y="675"/>
+                            <mxPoint x="1160" y="755"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf3-zenn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.85;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=light-dark(#586838, #ff7f93);exitPerimeter=0;" parent="1" source="workflow3-container" target="external-zenn" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="552"/>
+                            <mxPoint x="770" y="635"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn-wf4-ext-pages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.85;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=light-dark(#495e2d, #ff7f93);exitPerimeter=0;" parent="1" source="workflow4-container" target="external-pages" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

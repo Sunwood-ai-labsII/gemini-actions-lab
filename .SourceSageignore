@@ -53,5 +53,5 @@ venv
 .venv
 
 generated-images/
-discord-issue-bot/
-.github/
+
+uv.lock
