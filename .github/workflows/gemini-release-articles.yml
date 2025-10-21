@@ -19,6 +19,8 @@ env:
   MAX_FILES: 500
   MAX_CONTRIBUTORS: 200
   MAX_DIFF_LINES: 2000
+  OASIS_ARTICLE_REPOSITORY: ${{ vars.OASIS_ARTICLE_REPOSITORY || 'Sunwood-ai-labs/oasis-sync' }}
+  OASIS_ARTICLE_REPOSITORY_REF: ${{ vars.OASIS_ARTICLE_REPOSITORY_REF || github.event.repository.default_branch }}
 
 jobs:
   oasis-article:
@@ -301,6 +303,41 @@ jobs:
             - 生成結果はコードブロックで囲まず、front matter と本文だけを含める
             - 説明文や余計なコメントは含めない
 
+      - name: Clone target article repository
+        id: clone_target
+        env:
+          TARGET_REPOSITORY: "${{ env.OASIS_ARTICLE_REPOSITORY }}"
+          TARGET_REF: "${{ env.OASIS_ARTICLE_REPOSITORY_REF }}"
+          GITHUB_TOKEN: "${{ secrets.GH_PAT }}"
+        run: |
+          set -euo pipefail
+          if [[ -z "${TARGET_REPOSITORY}" ]]; then
+            echo "OASIS_ARTICLE_REPOSITORY must not be empty." >&2
+            exit 1
+          fi
+          if [[ -z "${GITHUB_TOKEN}" ]]; then
+            echo "GITHUB_TOKEN is required to clone the target repository." >&2
+            exit 1
+          fi
+          CLONE_ROOT="$(mktemp -d "${RUNNER_TEMP}/oasis-articles-XXXXXX")"
+          CLONE_DIR="${CLONE_ROOT}/repo"
+          GIT_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
+          git clone --depth 1 "${GIT_URL}" "${CLONE_DIR}"
+          pushd "${CLONE_DIR}" >/dev/null
+          DEFAULT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          if [[ -n "${TARGET_REF}" && "${TARGET_REF}" != "${DEFAULT_BRANCH}" ]]; then
+            if git ls-remote --exit-code --heads origin "${TARGET_REF}" >/dev/null 2>&1; then
+              git fetch origin "${TARGET_REF}:${TARGET_REF}" --depth 1 >/dev/null 2>&1 || true
+              git checkout "${TARGET_REF}" >/dev/null 2>&1
+            else
+              git checkout -b "${TARGET_REF}" >/dev/null 2>&1
+            fi
+          fi
+          popd >/dev/null
+          {
+            echo "dir=${CLONE_DIR}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create Oasis article file
         id: oasis_file
         env:
@@ -309,8 +346,13 @@ jobs:
           OASIS_CONTENT: "${{ steps.oasis_article.outputs.summary }}"
           HEADER_IMAGE_URL: "${{ steps.header.outputs.raw_url }}"
           HEADER_IMAGE_NAME: "${{ steps.header.outputs.image_name }}"
+          TARGET_DIR: "${{ steps.clone_target.outputs.dir }}"
         run: |
           set -euo pipefail
+          if [[ -z "${TARGET_DIR}" ]]; then
+            echo "Target repository directory not provided." >&2
+            exit 1
+          fi
           REPO_NAME="${REPOSITORY##*/}"
           TAG_CLEAN="${TAG#v}"
           TIMESTAMP=$(date +%Y%m%d)
@@ -355,30 +397,79 @@ jobs:
             echo "生成された記事コンテンツが空です" >&2
             exit 1
           fi
+          FILEPATH_REL="articles/oasis/${FILENAME}"
+          FILEPATH="${TARGET_DIR}/${FILEPATH_REL}"
+          mkdir -p "$(dirname "${FILEPATH}")"
           HAS_CHANGES="true"
-          if [[ -f "${FILEPATH}" ]]; then
-            if diff -q "${CONTENT_FILE}" "${FILEPATH}" >/dev/null; then
-              HAS_CHANGES="false"
-            fi
-          fi
-          if [[ "${HAS_CHANGES}" == "true" ]]; then
-            cp "${CONTENT_FILE}" "${FILEPATH}"
-            echo "✅ Oasis article written to ${FILEPATH}"
+          if [[ -f "${FILEPATH}" ]] && diff -q "${CONTENT_FILE}" "${FILEPATH}" >/dev/null; then
+            HAS_CHANGES="false"
+            echo "No content changes detected for ${FILEPATH_REL}"
           else
-            echo "No content changes detected for ${FILEPATH}"
+            cp "${CONTENT_FILE}" "${FILEPATH}"
+            echo "✅ Oasis article prepared at ${FILEPATH_REL}"
           fi
           rm -f "${RAW_FILE}" "${CLEAN_FILE}"
           trap - EXIT
           echo "oasis_filename=${FILENAME}" >> "$GITHUB_OUTPUT"
-          echo "oasis_filepath=${FILEPATH}" >> "$GITHUB_OUTPUT"
+          echo "oasis_filepath=${FILEPATH_REL}" >> "$GITHUB_OUTPUT"
+          echo "oasis_fullpath=${FILEPATH}" >> "$GITHUB_OUTPUT"
           echo "slug=${SLUG}" >> "$GITHUB_OUTPUT"
           echo "has_changes=${HAS_CHANGES}" >> "$GITHUB_OUTPUT"
 
-      - name: Commit Oasis article
-        if: steps.oasis_file.outputs.has_changes == 'true'
+      - name: Push Oasis article to target repository
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # ratchet:stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "📰 Add Oasis release article for ${{ github.repository }} ${{ steps.ctx.outputs.tag }}"
-          file_pattern: ${{ steps.oasis_file.outputs.oasis_filepath }}
+          TARGET_REPOSITORY: "${{ env.OASIS_ARTICLE_REPOSITORY }}"
+          TARGET_REF: "${{ env.OASIS_ARTICLE_REPOSITORY_REF }}"
+          TARGET_DIR: "${{ steps.clone_target.outputs.dir }}"
+          OASIS_FILEPATH: "${{ steps.oasis_file.outputs.oasis_filepath }}"
+          OASIS_FULLPATH: "${{ steps.oasis_file.outputs.oasis_fullpath }}"
+          HAS_CHANGES: "${{ steps.oasis_file.outputs.has_changes }}"
+          COMMIT_MESSAGE: "📰 Add Oasis release article for ${{ github.repository }} ${{ steps.ctx.outputs.tag }}"
+          GITHUB_TOKEN: "${{ secrets.GH_PAT }}"
+        run: |
+          set -euo pipefail
+          if [[ "${HAS_CHANGES}" != "true" ]]; then
+            echo "No content changes to publish."
+            exit 0
+          fi
+          if [[ -z "${TARGET_DIR}" ]]; then
+            echo "Target repository directory not provided." >&2
+            exit 1
+          fi
+          if [[ -z "${OASIS_FILEPATH}" || -z "${OASIS_FULLPATH}" ]]; then
+            echo "Article file paths not provided." >&2
+            exit 1
+          fi
+          if [[ ! -f "${OASIS_FULLPATH}" ]]; then
+            echo "Article file ${OASIS_FULLPATH} was not found." >&2
+            exit 1
+          fi
+          if [[ -z "${TARGET_REPOSITORY}" ]]; then
+            echo "OASIS_ARTICLE_REPOSITORY must not be empty." >&2
+            exit 1
+          fi
+          if [[ -z "${GITHUB_TOKEN}" ]]; then
+            echo "GITHUB_TOKEN is required to push changes." >&2
+            exit 1
+          fi
+          export GH_TOKEN="${GITHUB_TOKEN}"
+          gh auth setup-git >/dev/null
+          pushd "${TARGET_DIR}" >/dev/null
+          if [[ -n "${TARGET_REF}" ]]; then
+            git checkout "${TARGET_REF}" >/dev/null 2>&1 || git checkout -b "${TARGET_REF}"
+          fi
+          git add "${OASIS_FILEPATH}"
+          if git diff --cached --quiet; then
+            echo "No staged changes to commit."
+            popd >/dev/null
+            exit 0
+          fi
+          AUTHOR_LOGIN="$(gh api user --jq .login 2>/dev/null || echo "")"
+          if [[ -z "${AUTHOR_LOGIN}" || "${AUTHOR_LOGIN}" == "null" ]]; then
+            AUTHOR_LOGIN="oasis-automation"
+          fi
+          git config user.name "${AUTHOR_LOGIN}"
+          git config user.email "${AUTHOR_LOGIN}@users.noreply.github.com"
+          git commit -m "${COMMIT_MESSAGE}"
+          git push origin "${TARGET_REF}"
+          popd >/dev/null
