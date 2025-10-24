@@ -59,10 +59,11 @@ class GitHubClient:
         secret_name: str,
         encrypted_value: str,
         key_id: str,
-    ) -> None:
+    ) -> int:
         url = f"{self.api_url}/repos/{owner}/{repo}/actions/secrets/{secret_name}"
         payload = {"encrypted_value": encrypted_value, "key_id": key_id}
-        self._request("PUT", url, json=payload)
+        response = self._request("PUT", url, json=payload)
+        return response.status_code
 
     def download_repository_archive(self, owner: str, repo: str, ref: Optional[str] = None) -> bytes:
         ref_part = f"/{ref}" if ref else ""

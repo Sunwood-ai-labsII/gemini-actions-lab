@@ -6,7 +6,7 @@
 
 本ボットは2通りの操作に対応しています:
 - テキストコマンド: `!issue ...`（既存方式）
-- スラッシュコマンド: `/issue`, `/issue_help`, `/tag_latest`（推奨）
+- スラッシュコマンド: `/issue`, `/issue_help`, `/tag_latest`, `/sync_env`（推奨）
 
 補助機能:
 - 最近使った `owner/repo` を自動記憶し、`repo` 引数でオートコンプリート候補に表示します。
@@ -44,6 +44,10 @@ docker compose -f docker-compose.yaml logs -f
 - `/tag_latest`: 指定リポジトリの最新コミットに軽量タグを作成
   - 引数: `repo`(owner/repo), `tag`(作成したいタグ名), `branch`(任意; 省略時はデフォルトブランチ)
   - 例: `/tag_latest repo:owner/repo tag:v1.2.3`（デフォルトブランチ先頭に v1.2.3 を作成）
+- `/sync_env`: `.env` ファイルの内容を GitHub Actions リポジトリ変数へ同期（有効化時のみ表示）
+  - 事前準備: `GITHUB_TOKEN` に `actions:write` 相当の権限が必要、`DISCORD_ENV_SYNC_ENABLED=1` を設定
+  - 引数: `repo`(owner/repo, 任意), `env_file`(任意), `include_keys`/`exclude_keys`(任意), `dry_run`(任意)
+  - 例: `/sync_env repo:owner/repo env_file:.env.sync dry_run:true`
 
 ヒント:
 - グローバルコマンドの反映には最大1時間かかることがあります。即時反映したい場合は環境変数 `DISCORD_GUILD_ID` を設定すると、そのギルドへスラッシュコマンドを即時同期します。
@@ -102,10 +106,11 @@ docker compose -f docker-compose.yaml logs -f
 - `bot.py`: 起動エントリ（Bot 初期化とコマンド登録）
 - `app/` パッケージ: 本体コードを集約
   - `app/bot_client.py`: Discord クライアント本体（`on_ready`/`on_message` など）
-  - `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`）
+  - `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`, `/sync_env`）
   - `app/parser.py`: レガシー `!issue` と入力パース（ラベル/アサイン）
   - `app/github_api.py`: GitHub API ヘルパー
   - `app/config.py`: 環境変数の読み取りと設定
+  - `app/env_sync.py`: `/sync_env` コマンド用の .env 読み込みと GitHub 変数同期ヘルパー
   - `app/utils.py`: 本文末尾のメタ情報付加などのユーティリティ
 
 ### 本文テンプレート（example/）
@@ -121,6 +126,13 @@ docker compose -f docker-compose.yaml logs -f
 - `DISCORD_ISSUE_BOT_HISTORY`: 最近使ったリポジトリの保存先ファイルパス。
   - 既定: `/data/history.json`（コンテナ内; ホストでは `discord-issue-bot/data/history.json`）
   - 例: `.env` に `DISCORD_ISSUE_BOT_HISTORY=/data/history.json`
+
+### 環境変数同期コマンド（任意）
+- `DISCORD_ENV_SYNC_ENABLED=1` を設定すると `/sync_env` コマンドが有効化されます（既定は無効）
+- `DISCORD_ENV_SYNC_FILE`: 同期対象の `.env` ファイル（既定: `.env`）
+- `DISCORD_ENV_SYNC_REPO`: 既定の同期先リポジトリ。未指定時は履歴の先頭を利用
+- `DISCORD_ENV_SYNC_ALLOWED_USERS`: `,` 区切りの Discord ユーザー ID を指定すると実行権限を限定可能
+- `/sync_env` は GitHub Actions リポジトリ変数 API を利用し、成功・失敗のみをエフェメラルに通知します（値は表示しません）
 
 ### データ永続化（おすすめ）
 - `docker-compose.yaml` で `./data:/data` をマウント済みです。
