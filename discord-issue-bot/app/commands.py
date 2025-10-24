@@ -347,18 +347,17 @@ def setup_commands(bot: discord.Client):
     ):
         if not config.ENV_SYNC_ENABLED:
             await interaction.response.send_message(
-                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。",
-                ephemeral=True,
+                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。"
             )
             return
 
         if not config.GITHUB_TOKEN:
-            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です")
             return
 
         allowed_users = config.get_env_sync_allowed_users()
         if allowed_users and interaction.user.id not in allowed_users:
-            await interaction.response.send_message("このコマンドを実行する権限がありません。", ephemeral=True)
+            await interaction.response.send_message("このコマンドを実行する権限がありません。")
             return
 
         target_repo = (repo or config.ENV_SYNC_DEFAULT_REPO or "").strip()
@@ -368,8 +367,7 @@ def setup_commands(bot: discord.Client):
                 target_repo = history[0]
         if not target_repo:
             await interaction.response.send_message(
-                "同期先のリポジトリを指定してください（引数 repo または DISCORD_ENV_SYNC_REPO）。",
-                ephemeral=True,
+                "同期先のリポジトリを指定してください（引数 repo または DISCORD_ENV_SYNC_REPO）。"
             )
             return
 
@@ -377,10 +375,10 @@ def setup_commands(bot: discord.Client):
         try:
             variables = load_env_file(env_path)
         except FileNotFoundError:
-            await interaction.response.send_message(f".env ファイルが見つかりません: {env_path}", ephemeral=True)
+            await interaction.response.send_message(f".env ファイルが見つかりません: {env_path}")
             return
         except Exception as exc:
-            await interaction.response.send_message(f".env の読み込みに失敗しました: {exc}", ephemeral=True)
+            await interaction.response.send_message(f".env の読み込みに失敗しました: {exc}")
             return
 
         def _split_keys(raw: str) -> list[str]:
@@ -399,12 +397,38 @@ def setup_commands(bot: discord.Client):
 
         if not filtered:
             await interaction.response.send_message(
-                "同期対象の変数がありません。フィルタ条件や .env の内容を確認してください。",
-                ephemeral=True,
+                "同期対象の変数がありません。フィルタ条件や .env の内容を確認してください。"
             )
             return
 
-        await interaction.response.defer(thinking=True, ephemeral=True)
+        await interaction.response.defer(thinking=True)
+
+        headline = f"🔄 `{target_repo}` への環境変数同期を開始します"
+        status_message = await interaction.followup.send(headline, wait=True)
+
+        thread_name = f"sync-env {target_repo}".replace("/", "-")
+        thread = None
+        thread_error = None
+        try:
+            channel = interaction.channel
+            if channel and hasattr(channel, "create_thread"):
+                thread = await channel.create_thread(
+                    name=thread_name[:95],
+                    message=status_message,
+                    auto_archive_duration=1440,
+                )
+            else:
+                thread_error = "スレッド対応チャンネルではないため、このチャンネルに投稿します。"
+        except discord.Forbidden as exc:
+            thread_error = "スレッドを作成する権限がありませんでした。"
+        except discord.HTTPException as exc:
+            thread_error = f"スレッド作成時にエラーが発生しました: {exc}"
+        if thread:
+            await status_message.edit(content=f"🧵 `{target_repo}` の同期ログ: <#{thread.id}>")
+        else:
+            fallback_note = thread_error or "スレッドを利用できなかったため、このチャンネルに投稿します。"
+            await status_message.edit(content=f"⚠️ {fallback_note}")
+            thread = status_message.channel
 
         if dry_run:
             names = sorted(filtered.keys())
@@ -418,8 +442,15 @@ def setup_commands(bot: discord.Client):
                 f"対象キー数: {len(names)}\n"
                 f"対象キー: {preview or '(なし)'}"
             )
-            await interaction.followup.send(message)
+            await thread.send(message)
+            await thread.send("✅ ドライランを完了しました（GitHub への変更はありません）")
             return
+
+        await thread.send(
+            f"⚙️ 同期対象キー数: {len(filtered)}\n"
+            f"ファイル: `{str(env_path)}`\n"
+            "GitHub API リクエストを送信しています…"
+        )
 
         result = sync_repository_variables(target_repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
 
@@ -443,7 +474,9 @@ def setup_commands(bot: discord.Client):
             if len(result.errors) > 5:
                 lines.append(f"...さらに {len(result.errors) - 5} 件のエラーがあります")
 
-        await interaction.followup.send("\n".join(lines))
+        summary = "\n".join(lines)
+        await thread.send(summary)
+        await thread.send("✅ 同期処理が完了しました" if result.failed == 0 else "⚠️ 一部のキーでエラーが発生しました")
 
     # オートコンプリート: issue_quick の repo
     @issue_quick.autocomplete("repo")
