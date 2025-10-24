@@ -432,17 +432,20 @@ def setup_commands(bot: discord.Client):
 
         if dry_run:
             names = sorted(filtered.keys())
-            preview = ", ".join(names[:20])
-            if len(names) > 20:
-                preview += ", ..."
-            message = (
-                "プレビュー結果\n"
-                f"同期先: `{target_repo}`\n"
-                f"ファイル: `{str(env_path)}`\n"
-                f"対象キー数: {len(names)}\n"
-                f"対象キー: {preview or '(なし)'}"
-            )
-            await thread.send(message)
+            message_lines = [
+                "🔍 ドライラン結果",
+                f"同期先: `{target_repo}`",
+                f"ファイル: `{str(env_path)}`",
+                f"対象キー数: {len(names)}",
+            ]
+            if names:
+                message_lines.append("対象キー一覧:")
+                for name in names:
+                    preview = filtered[name][:4] + ("…" if len(filtered[name]) > 4 else "")
+                    message_lines.append(f"- {name}: {preview or '(空)'}")
+            else:
+                message_lines.append("対象キー: (なし)")
+            await thread.send("\n".join(message_lines))
             await thread.send("✅ ドライランを完了しました（GitHub への変更はありません）")
             return
 
@@ -454,29 +457,43 @@ def setup_commands(bot: discord.Client):
 
         result = sync_repository_variables(target_repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
 
-        if result.failed == 0:
+        if result.failed_count == 0:
             remember_repo(target_repo)
 
-        lines = [
+        def masked(name: str) -> str:
+            value = filtered.get(name, "")
+            preview = value[:4]
+            return f"{preview}{'…' if len(value) > 4 else ''}" if value else "(空)"
+
+        if result.created:
+            created_lines = ["✨ 新規作成したキー:"]
+            created_lines.extend(f"- {name}: {masked(name)}" for name in result.created)
+            await thread.send("\n".join(created_lines))
+
+        if result.updated:
+            updated_lines = ["✅ 更新したキー:"]
+            updated_lines.extend(f"- {name}: {masked(name)}" for name in result.updated)
+            await thread.send("\n".join(updated_lines))
+
+        if result.failed:
+            failed_lines = ["⚠️ 失敗したキー:"]
+            for name, status, snippet in result.failed:
+                detail = f"{name} ({status})"
+                if snippet:
+                    detail += f": {snippet}"
+                failed_lines.append(f"- {detail}")
+            await thread.send("\n".join(failed_lines))
+
+        summary = [
             f"同期先: `{target_repo}`",
             f"ファイル: `{str(env_path)}`",
             f"対象キー数: {len(filtered)}",
-            f"作成: {result.created}",
-            f"更新: {result.updated}",
+            f"作成: {result.created_count}",
+            f"更新: {result.updated_count}",
+            f"失敗: {result.failed_count}",
         ]
-        if result.failed:
-            lines.append(f"失敗: {result.failed}")
-            for name, status, snippet in result.errors[:5]:
-                detail = f"{name} ({status})"
-                if snippet:
-                    detail = f"{detail}: {snippet}"
-                lines.append(detail)
-            if len(result.errors) > 5:
-                lines.append(f"...さらに {len(result.errors) - 5} 件のエラーがあります")
-
-        summary = "\n".join(lines)
-        await thread.send(summary)
-        await thread.send("✅ 同期処理が完了しました" if result.failed == 0 else "⚠️ 一部のキーでエラーが発生しました")
+        await thread.send("\n".join(summary))
+        await thread.send("✅ 同期処理が完了しました" if result.failed_count == 0 else "⚠️ 一部のキーでエラーが発生しました")
 
     # オートコンプリート: issue_quick の repo
     @issue_quick.autocomplete("repo")
