@@ -333,8 +333,8 @@ def setup_commands(bot: discord.Client):
     @app_commands.describe(
         repo="同期先リポジトリ (owner/repo)。未指定時は設定値や履歴を使用します",
         env_file="読み込む .env ファイル（デフォルト: DISCORD_ENV_SYNC_FILE）",
-        include_keys="同期対象をキー名で制限（カンマ区切り）",
-        exclude_keys="同期から除外するキー名（カンマ区切り）",
+        include_keys="同期対象をキー名で制限（カンマ区切り・任意。例: SECRET_API_KEY,DISCORD_TOKEN）",
+        exclude_keys="同期から除外するキー名（カンマ区切り・任意。例: TEST_TOKEN）",
         dry_run="プレビューのみ実行し、GitHub へは反映しません",
     )
     async def sync_env_command(
@@ -396,9 +396,14 @@ def setup_commands(bot: discord.Client):
         filtered = filter_variables(variables, include=include_list or None, exclude=exclude_list or None)
 
         if not filtered:
-            await interaction.response.send_message(
-                "同期対象の変数がありません。フィルタ条件や .env の内容を確認してください。"
-            )
+            guidance = [
+                "同期対象の変数がありません。以下を確認してください:",
+                "• `.env` に値が入っているか",
+                "• `include_keys` を指定した場合はキー名が一致しているか",
+                "• `exclude_keys` により除外されていないか",
+                "（どちらの引数も任意です。未入力ならすべてのキーが対象になります）",
+            ]
+            await interaction.response.send_message("\n".join(guidance))
             return
 
         await interaction.response.defer(thinking=True)
