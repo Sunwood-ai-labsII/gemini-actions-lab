@@ -20,6 +20,7 @@ except ImportError:  # pragma: no cover - falls back to plain text banner
 
 from .env_loader import apply_env_file, load_env_file
 from .github_api import GitHubClient, GitHubError, encrypt_secret, parse_repo
+from .secrets import SecretSyncResult, sync_secrets_from_env_file, sync_repository_secrets
 from .workflows import WorkflowSyncError, extract_github_directory
 
 DEFAULT_TEMPLATE_REPO = "Sunwood-ai-labsII/gemini-actions-lab"
@@ -137,23 +138,35 @@ def _require_token(explicit_token: str | None) -> str:
 
 
 def sync_secrets(args: argparse.Namespace) -> int:
-    owner, repo = parse_repo(args.repo)
-    env_values = load_env_file(Path(args.env_file))
     token = _require_token(args.token)
+    try:
+        result = sync_secrets_from_env_file(
+            args.repo,
+            [Path(args.env_file)],
+            token=token,
+            api_url=args.api_url,
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from exc
 
-    client = GitHubClient(token=token, api_url=args.api_url)
-    public_key = client.get_actions_public_key(owner, repo)
+    return _print_secret_sync_result(result, args.repo)
 
-    encrypted_payloads = {
-        name: encrypt_secret(public_key["key"], value) for name, value in env_values.items()
-    }
 
-    for name, encrypted in encrypted_payloads.items():
-        client.put_actions_secret(owner, repo, name, encrypted, public_key["key_id"])
-        print(f"✅ Synced secret {name}")
-
-    print(f"🎉 Applied {len(encrypted_payloads)} secrets to {owner}/{repo}")
-    return 0
+def _print_secret_sync_result(result: SecretSyncResult, repo: str) -> int:
+    if result.total == 0:
+        print(f"ℹ {repo}: No secrets to sync")
+    if result.created:
+        for name in result.created:
+            print(f"✨ Created secret {name}")
+    if result.updated:
+        for name in result.updated:
+            print(f"✅ Updated secret {name}")
+    if result.failed:
+        for err in result.failed:
+            detail = f"{err.status}: {err.message}" if err.status else err.message
+            print(f"❌ Failed secret {err.name} → {detail}")
+    print(f"🎉 Applied {result.total - len(result.failed)} secrets to {repo}")
+    return 0 if not result.failed else 1
 
 
 def _sync_workflows_remote(

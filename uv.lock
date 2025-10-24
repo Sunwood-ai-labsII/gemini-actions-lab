@@ -141,7 +141,7 @@ wheels = [
 
 [[package]]
 name = "gemini-actions-lab-cli"
-version = "0.1.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "pyfiglet" },

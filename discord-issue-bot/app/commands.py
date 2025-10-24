@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 
 from . import config
+from .env_sync import filter_variables, load_env_file, sync_repository_variables
 from .github_api import http_get, http_post
 from .parser import parse_labels_input, parse_assignees_input
 from .utils import build_body_with_footer
@@ -328,6 +329,122 @@ def setup_commands(bot: discord.Client):
             await interaction.followup.send(f"作成失敗: タグ '{tag}' は既に存在します")
             return
 
+    @bot.tree.command(name="sync_env", description="GitHub Actions の環境変数を .env から同期します")
+    @app_commands.describe(
+        repo="同期先リポジトリ (owner/repo)。未指定時は設定値や履歴を使用します",
+        env_file="読み込む .env ファイル（デフォルト: DISCORD_ENV_SYNC_FILE）",
+        include_keys="同期対象をキー名で制限（カンマ区切り）",
+        exclude_keys="同期から除外するキー名（カンマ区切り）",
+        dry_run="プレビューのみ実行し、GitHub へは反映しません",
+    )
+    async def sync_env_command(
+        interaction: discord.Interaction,
+        repo: str | None = None,
+        env_file: str | None = None,
+        include_keys: str = "",
+        exclude_keys: str = "",
+        dry_run: bool = False,
+    ):
+        if not config.ENV_SYNC_ENABLED:
+            await interaction.response.send_message(
+                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。",
+                ephemeral=True,
+            )
+            return
+
+        if not config.GITHUB_TOKEN:
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            return
+
+        allowed_users = config.get_env_sync_allowed_users()
+        if allowed_users and interaction.user.id not in allowed_users:
+            await interaction.response.send_message("このコマンドを実行する権限がありません。", ephemeral=True)
+            return
+
+        target_repo = (repo or config.ENV_SYNC_DEFAULT_REPO or "").strip()
+        if not target_repo:
+            history = recent_repos("", limit=1)
+            if history:
+                target_repo = history[0]
+        if not target_repo:
+            await interaction.response.send_message(
+                "同期先のリポジトリを指定してください（引数 repo または DISCORD_ENV_SYNC_REPO）。",
+                ephemeral=True,
+            )
+            return
+
+        env_path = Path(env_file or config.ENV_SYNC_DEFAULT_FILE or ".env").expanduser()
+        try:
+            variables = load_env_file(env_path)
+        except FileNotFoundError:
+            await interaction.response.send_message(f".env ファイルが見つかりません: {env_path}", ephemeral=True)
+            return
+        except Exception as exc:
+            await interaction.response.send_message(f".env の読み込みに失敗しました: {exc}", ephemeral=True)
+            return
+
+        def _split_keys(raw: str) -> list[str]:
+            if not raw:
+                return []
+            tokens: list[str] = []
+            for chunk in raw.replace(",", " ").split():
+                part = chunk.strip()
+                if part:
+                    tokens.append(part)
+            return tokens
+
+        include_list = _split_keys(include_keys)
+        exclude_list = _split_keys(exclude_keys)
+        filtered = filter_variables(variables, include=include_list or None, exclude=exclude_list or None)
+
+        if not filtered:
+            await interaction.response.send_message(
+                "同期対象の変数がありません。フィルタ条件や .env の内容を確認してください。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(thinking=True, ephemeral=True)
+
+        if dry_run:
+            names = sorted(filtered.keys())
+            preview = ", ".join(names[:20])
+            if len(names) > 20:
+                preview += ", ..."
+            message = (
+                "プレビュー結果\n"
+                f"同期先: `{target_repo}`\n"
+                f"ファイル: `{str(env_path)}`\n"
+                f"対象キー数: {len(names)}\n"
+                f"対象キー: {preview or '(なし)'}"
+            )
+            await interaction.followup.send(message)
+            return
+
+        result = sync_repository_variables(target_repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
+
+        if result.failed == 0:
+            remember_repo(target_repo)
+
+        lines = [
+            f"同期先: `{target_repo}`",
+            f"ファイル: `{str(env_path)}`",
+            f"対象キー数: {len(filtered)}",
+            f"作成: {result.created}",
+            f"更新: {result.updated}",
+        ]
+        if result.failed:
+            lines.append(f"失敗: {result.failed}")
+            for name, status, snippet in result.errors[:5]:
+                detail = f"{name} ({status})"
+                if snippet:
+                    detail = f"{detail}: {snippet}"
+                lines.append(detail)
+            if len(result.errors) > 5:
+                lines.append(f"...さらに {len(result.errors) - 5} 件のエラーがあります")
+
+        await interaction.followup.send("\n".join(lines))
+
     # オートコンプリート: issue_quick の repo
     @issue_quick.autocomplete("repo")
     async def issue_quick_repo_autocomplete(
@@ -336,12 +453,21 @@ def setup_commands(bot: discord.Client):
         repos = recent_repos(current, limit=25)
         return [app_commands.Choice(name=r, value=r) for r in repos]
 
-        await interaction.followup.send(f"作成失敗: {st3}\n{(body3 or '')[:800]}")
-
     # オートコンプリート: tag_latest の repo
     @tag_latest.autocomplete("repo")
     async def tag_latest_repo_autocomplete(
         interaction: discord.Interaction, current: str
     ) -> list[app_commands.Choice[str]]:
         repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
+    @sync_env_command.autocomplete("repo")
+    async def sync_env_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        if not current and config.ENV_SYNC_DEFAULT_REPO:
+            default_repo = config.ENV_SYNC_DEFAULT_REPO.strip()
+            if default_repo and default_repo not in repos:
+                repos = [default_repo] + repos
         return [app_commands.Choice(name=r, value=r) for r in repos]
