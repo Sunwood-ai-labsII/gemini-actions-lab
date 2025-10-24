@@ -48,6 +48,10 @@ docker compose -f docker-compose.yaml logs -f
 - `/sync_env`: `.env` ファイルの内容を GitHub Actions リポジトリ変数へ同期（有効化時のみ表示）
   - 事前準備: `GITHUB_TOKEN` に `actions:write` 相当の権限が必要、`DISCORD_ENV_SYNC_ENABLED=1` を設定
   - 引数: `repo`(owner/repo, 任意), `env_file`(任意), `include_keys`/`exclude_keys`(任意), `dry_run`(任意)
+    - `include_keys`: 同期対象を絞りたいときにカンマ区切りで指定（未指定なら全キー）。例: `include_keys:SECRET_API_KEY,DISCORD_TOKEN`
+    - `exclude_keys`: 除外したいキーをカンマ区切りで指定。例: `exclude_keys:TEST_TOKEN`
+    - `dry_run`: `true` を指定するとプレビューのみ実行し、値の先頭4文字までを一覧表示
+  - 実行時は専用スレッドに進捗と結果を投稿し、作成/更新/失敗したキーを一覧化します
   - 例: `/sync_env repo:owner/repo env_file:.env.sync dry_run:true`
 
 ヒント:
