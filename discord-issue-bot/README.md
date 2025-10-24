@@ -10,6 +10,7 @@
 
 補助機能:
 - 最近使った `owner/repo` を自動記憶し、`repo` 引数でオートコンプリート候補に表示します。
+- 追加で、`DISCORD_REPO_SUGGEST_ACCOUNTS` に指定したアカウントのうち直近更新されたリポジトリも候補に含められます。
 
 必要な環境変数は 2 つだけ:
 - `DISCORD_BOT_TOKEN`
@@ -133,6 +134,11 @@ docker compose -f docker-compose.yaml logs -f
 - `DISCORD_ENV_SYNC_REPO`: 既定の同期先リポジトリ。未指定時は履歴の先頭を利用
 - `DISCORD_ENV_SYNC_ALLOWED_USERS`: `,` 区切りの Discord ユーザー ID を指定すると実行権限を限定可能
 - `/sync_env` は GitHub Actions リポジトリ変数 API を利用し、成功・失敗のみをエフェメラルに通知します（値は表示しません）
+
+### リポジトリアウトコンプリート（任意強化）
+- `DISCORD_REPO_SUGGEST_ACCOUNTS`: 例 `Sunwood-ai-labs,Sunwood-ai-labsII`。指定したアカウントのリポジトリを候補に追加
+- `DISCORD_REPO_SUGGEST_LOOKBACK_DAYS`: 例 `7`。何日以内に作成・更新されたリポジトリを候補とみなすか
+- 候補はローカル履歴と統合され、API 呼び出し結果は数分間キャッシュされます
 
 ### データ永続化（おすすめ）
 - `docker-compose.yaml` で `./data:/data` をマウント済みです。
