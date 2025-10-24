@@ -333,8 +333,8 @@ def setup_commands(bot: discord.Client):
     @app_commands.describe(
         repo="同期先リポジトリ (owner/repo)。未指定時は設定値や履歴を使用します",
         env_file="読み込む .env ファイル（デフォルト: DISCORD_ENV_SYNC_FILE）",
-        include_keys="同期対象をキー名で制限（カンマ区切り）",
-        exclude_keys="同期から除外するキー名（カンマ区切り）",
+        include_keys="同期対象をキー名で制限（カンマ区切り・任意。例: SECRET_API_KEY,DISCORD_TOKEN）",
+        exclude_keys="同期から除外するキー名（カンマ区切り・任意。例: TEST_TOKEN）",
         dry_run="プレビューのみ実行し、GitHub へは反映しません",
     )
     async def sync_env_command(
@@ -347,18 +347,17 @@ def setup_commands(bot: discord.Client):
     ):
         if not config.ENV_SYNC_ENABLED:
             await interaction.response.send_message(
-                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。",
-                ephemeral=True,
+                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。"
             )
             return
 
         if not config.GITHUB_TOKEN:
-            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です")
             return
 
         allowed_users = config.get_env_sync_allowed_users()
         if allowed_users and interaction.user.id not in allowed_users:
-            await interaction.response.send_message("このコマンドを実行する権限がありません。", ephemeral=True)
+            await interaction.response.send_message("このコマンドを実行する権限がありません。")
             return
 
         target_repo = (repo or config.ENV_SYNC_DEFAULT_REPO or "").strip()
@@ -368,8 +367,7 @@ def setup_commands(bot: discord.Client):
                 target_repo = history[0]
         if not target_repo:
             await interaction.response.send_message(
-                "同期先のリポジトリを指定してください（引数 repo または DISCORD_ENV_SYNC_REPO）。",
-                ephemeral=True,
+                "同期先のリポジトリを指定してください（引数 repo または DISCORD_ENV_SYNC_REPO）。"
             )
             return
 
@@ -377,10 +375,10 @@ def setup_commands(bot: discord.Client):
         try:
             variables = load_env_file(env_path)
         except FileNotFoundError:
-            await interaction.response.send_message(f".env ファイルが見つかりません: {env_path}", ephemeral=True)
+            await interaction.response.send_message(f".env ファイルが見つかりません: {env_path}")
             return
         except Exception as exc:
-            await interaction.response.send_message(f".env の読み込みに失敗しました: {exc}", ephemeral=True)
+            await interaction.response.send_message(f".env の読み込みに失敗しました: {exc}")
             return
 
         def _split_keys(raw: str) -> list[str]:
@@ -398,52 +396,109 @@ def setup_commands(bot: discord.Client):
         filtered = filter_variables(variables, include=include_list or None, exclude=exclude_list or None)
 
         if not filtered:
-            await interaction.response.send_message(
-                "同期対象の変数がありません。フィルタ条件や .env の内容を確認してください。",
-                ephemeral=True,
-            )
+            guidance = [
+                "同期対象の変数がありません。以下を確認してください:",
+                "• `.env` に値が入っているか",
+                "• `include_keys` を指定した場合はキー名が一致しているか",
+                "• `exclude_keys` により除外されていないか",
+                "（どちらの引数も任意です。未入力ならすべてのキーが対象になります）",
+            ]
+            await interaction.response.send_message("\n".join(guidance))
             return
 
-        await interaction.response.defer(thinking=True, ephemeral=True)
+        await interaction.response.defer(thinking=True)
+
+        headline = f"🔄 `{target_repo}` への環境変数同期を開始します"
+        status_message = await interaction.followup.send(headline, wait=True)
+
+        thread_name = f"sync-env {target_repo}".replace("/", "-")
+        thread = None
+        thread_error = None
+        try:
+            channel = interaction.channel
+            if channel and hasattr(channel, "create_thread"):
+                thread = await channel.create_thread(
+                    name=thread_name[:95],
+                    message=status_message,
+                    auto_archive_duration=1440,
+                )
+            else:
+                thread_error = "スレッド対応チャンネルではないため、このチャンネルに投稿します。"
+        except discord.Forbidden as exc:
+            thread_error = "スレッドを作成する権限がありませんでした。"
+        except discord.HTTPException as exc:
+            thread_error = f"スレッド作成時にエラーが発生しました: {exc}"
+        if thread:
+            await status_message.edit(content=f"🧵 `{target_repo}` の同期ログ: <#{thread.id}>")
+        else:
+            fallback_note = thread_error or "スレッドを利用できなかったため、このチャンネルに投稿します。"
+            await status_message.edit(content=f"⚠️ {fallback_note}")
+            thread = status_message.channel
 
         if dry_run:
             names = sorted(filtered.keys())
-            preview = ", ".join(names[:20])
-            if len(names) > 20:
-                preview += ", ..."
-            message = (
-                "プレビュー結果\n"
-                f"同期先: `{target_repo}`\n"
-                f"ファイル: `{str(env_path)}`\n"
-                f"対象キー数: {len(names)}\n"
-                f"対象キー: {preview or '(なし)'}"
-            )
-            await interaction.followup.send(message)
+            message_lines = [
+                "🔍 ドライラン結果",
+                f"同期先: `{target_repo}`",
+                f"ファイル: `{str(env_path)}`",
+                f"対象キー数: {len(names)}",
+            ]
+            if names:
+                message_lines.append("対象キー一覧:")
+                for name in names:
+                    preview = filtered[name][:4] + ("…" if len(filtered[name]) > 4 else "")
+                    message_lines.append(f"- {name}: {preview or '(空)'}")
+            else:
+                message_lines.append("対象キー: (なし)")
+            await thread.send("\n".join(message_lines))
+            await thread.send("✅ ドライランを完了しました（GitHub への変更はありません）")
             return
+
+        await thread.send(
+            f"⚙️ 同期対象キー数: {len(filtered)}\n"
+            f"ファイル: `{str(env_path)}`\n"
+            "GitHub API リクエストを送信しています…"
+        )
 
         result = sync_repository_variables(target_repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
 
-        if result.failed == 0:
+        if result.failed_count == 0:
             remember_repo(target_repo)
 
-        lines = [
+        def masked(name: str) -> str:
+            value = filtered.get(name, "")
+            preview = value[:4]
+            return f"{preview}{'…' if len(value) > 4 else ''}" if value else "(空)"
+
+        if result.created:
+            created_lines = ["✨ 新規作成したキー:"]
+            created_lines.extend(f"- {name}: {masked(name)}" for name in result.created)
+            await thread.send("\n".join(created_lines))
+
+        if result.updated:
+            updated_lines = ["✅ 更新したキー:"]
+            updated_lines.extend(f"- {name}: {masked(name)}" for name in result.updated)
+            await thread.send("\n".join(updated_lines))
+
+        if result.failed:
+            failed_lines = ["⚠️ 失敗したキー:"]
+            for name, status, snippet in result.failed:
+                detail = f"{name} ({status})"
+                if snippet:
+                    detail += f": {snippet}"
+                failed_lines.append(f"- {detail}")
+            await thread.send("\n".join(failed_lines))
+
+        summary = [
             f"同期先: `{target_repo}`",
             f"ファイル: `{str(env_path)}`",
             f"対象キー数: {len(filtered)}",
-            f"作成: {result.created}",
-            f"更新: {result.updated}",
+            f"作成: {result.created_count}",
+            f"更新: {result.updated_count}",
+            f"失敗: {result.failed_count}",
         ]
-        if result.failed:
-            lines.append(f"失敗: {result.failed}")
-            for name, status, snippet in result.errors[:5]:
-                detail = f"{name} ({status})"
-                if snippet:
-                    detail = f"{detail}: {snippet}"
-                lines.append(detail)
-            if len(result.errors) > 5:
-                lines.append(f"...さらに {len(result.errors) - 5} 件のエラーがあります")
-
-        await interaction.followup.send("\n".join(lines))
+        await thread.send("\n".join(summary))
+        await thread.send("✅ 同期処理が完了しました" if result.failed_count == 0 else "⚠️ 一部のキーでエラーが発生しました")
 
     # オートコンプリート: issue_quick の repo
     @issue_quick.autocomplete("repo")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, Tuple
 from urllib import error, parse, request
@@ -13,10 +13,21 @@ from . import config
 
 @dataclass(slots=True)
 class SyncResult:
-    created: int = 0
-    updated: int = 0
-    failed: int = 0
-    errors: Tuple[Tuple[str, int, str], ...] = ()
+    created: list[str] = field(default_factory=list)
+    updated: list[str] = field(default_factory=list)
+    failed: list[Tuple[str, int, str]] = field(default_factory=list)
+
+    @property
+    def created_count(self) -> int:
+        return len(self.created)
+
+    @property
+    def updated_count(self) -> int:
+        return len(self.updated)
+
+    @property
+    def failed_count(self) -> int:
+        return len(self.failed)
 
 
 def load_env_file(path: str | Path) -> Dict[str, str]:
@@ -70,8 +81,9 @@ def sync_repository_variables(
         return SyncResult()
 
     base_url = f"{config.GITHUB_API}/repos/{repo}/actions/variables"
-    created = updated = failed = 0
-    errors: list[Tuple[str, int, str]] = []
+    created: list[str] = []
+    updated: list[str] = []
+    failures: list[Tuple[str, int, str]] = []
 
     for name, value in items.items():
         if dry_run:
@@ -79,18 +91,16 @@ def sync_repository_variables(
         target = f"{base_url}/{parse.quote(name, safe='')}"
         status, body = _call_github("PATCH", target, {"value": value}, token)
         if status == 204:
-            updated += 1
+            updated.append(name)
             continue
         if status == 404:
             status, body = _call_github("POST", base_url, {"name": name, "value": value}, token)
             if status in (201, 204):
-                created += 1
+                created.append(name)
                 continue
-        failed += 1
-        snippet = (body or "")[:300]
-        errors.append((name, status, snippet))
+        failures.append((name, status, (body or "")[:300]))
 
-    return SyncResult(created=created, updated=updated, failed=failed, errors=tuple(errors))
+    return SyncResult(created=created, updated=updated, failed=failures)
 
 
 def filter_variables(
