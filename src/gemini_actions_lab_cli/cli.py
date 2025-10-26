@@ -319,6 +319,86 @@ def _sync_workflows_remote(
     return 0
 
 
+def sync_agent(args: argparse.Namespace) -> int:
+    """Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md) to a GitHub repository."""
+    token = _require_token(args.token)
+    client = GitHubClient(token=token, api_url=args.api_url)
+    owner, repo = parse_repo(args.repo)
+
+    reporter = ProgressReporter()
+    reporter.stage("Prepare agent guideline files", "Scanning for agent files")
+
+    # Define the agent guideline files to sync
+    agent_files = ["Claude.md", "GEMINI.md", "AGENT.md"]
+    base_path = Path.cwd()
+    files_to_sync = []
+
+    # Check which files exist
+    for agent_file in agent_files:
+        file_path = base_path / agent_file
+        if file_path.exists():
+            files_to_sync.append((agent_file, file_path))
+            reporter.info(f"Found {agent_file}")
+        else:
+            reporter.info(f"Skipped {agent_file} (not found)")
+
+    if not files_to_sync:
+        print("❌ No agent guideline files found to sync (Claude.md, GEMINI.md, AGENT.md)", file=sys.stderr)
+        return 1
+
+    reporter.success(f"Found {len(files_to_sync)} agent guideline file(s) to sync")
+    reporter.flush("File preparation")
+
+    # Get target branch
+    reporter.stage("Inspect target branch", args.repo)
+    target_branch = args.branch or client.get_default_branch(owner, repo)
+    commit_message = args.message or "🤖 Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md)"
+
+    reporter.info(f"Target: {owner}/{repo}@{target_branch}")
+    ref = client.get_ref(owner, repo, f"heads/{target_branch}")
+    base_commit_sha = ref["object"]["sha"]
+    base_commit = client.get_git_commit(owner, repo, base_commit_sha)
+    base_tree_sha = base_commit["tree"]["sha"]
+
+    # Create blobs and tree entries for each agent file
+    reporter.stage("Upload agent guideline files", "Creating blobs")
+    tree_entries = []
+
+    for file_name, file_path in files_to_sync:
+        content = file_path.read_bytes()
+        blob_sha = client.create_blob(owner, repo, content)
+        tree_entries.append({
+            "path": file_name,
+            "mode": "100644",
+            "type": "blob",
+            "sha": blob_sha,
+        })
+        reporter.info(f"Created blob for {file_name}")
+
+    reporter.success("All blobs created")
+
+    # Create new tree and commit
+    reporter.stage("Create commit", "Uploading new tree")
+    tree_sha = client.create_tree(owner, repo, tree_entries, base_tree=base_tree_sha)["sha"]
+    commit = client.create_commit(
+        owner,
+        repo,
+        commit_message,
+        tree_sha,
+        parents=[base_commit_sha],
+    )
+    client.update_ref(owner, repo, target_branch, commit["sha"], force=args.force)
+
+    reporter.success("Commit created")
+    reporter.flush("Sync steps")
+    reporter.list_panel("Updated files", [file_name for file_name, _ in files_to_sync])
+    reporter.success(
+        f"Synced {len(files_to_sync)} agent guideline file(s) to {owner}/{repo}@{target_branch} ({commit['sha'][:7]})"
+    )
+    reporter.flush("Results")
+    return 0
+
+
 def sync_workflows(args: argparse.Namespace) -> int:
     token = args.token or os.getenv("GITHUB_TOKEN")
     client = GitHubClient(token=token, api_url=args.api_url)
@@ -450,6 +530,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Copy the template repository root index.html alongside the .github directory",
     )
     workflows_parser.set_defaults(func=sync_workflows)
+
+    agent_parser = subparsers.add_parser(
+        "sync-agent",
+        help="Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md) to a GitHub repository",
+    )
+    agent_parser.add_argument(
+        "--repo",
+        required=True,
+        help="Target repository in owner/name format",
+    )
+    agent_parser.add_argument(
+        "--branch",
+        help="Target branch to update (defaults to the repository's default branch)",
+    )
+    agent_parser.add_argument(
+        "--message",
+        help="Custom commit message for the sync",
+    )
+    agent_parser.add_argument(
+        "--token",
+        help="GitHub personal access token (defaults to the GITHUB_TOKEN env var)",
+    )
+    agent_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force update the target branch reference",
+    )
+    agent_parser.set_defaults(func=sync_agent)
 
     return parser
 
