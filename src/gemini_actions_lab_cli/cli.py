@@ -319,40 +319,40 @@ def _sync_workflows_remote(
     return 0
 
 
-def sync_markdown(args: argparse.Namespace) -> int:
-    """Sync Claude.md, GEMINI.md, and AGENT.md files to a GitHub repository."""
+def sync_agent(args: argparse.Namespace) -> int:
+    """Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md) to a GitHub repository."""
     token = _require_token(args.token)
     client = GitHubClient(token=token, api_url=args.api_url)
     owner, repo = parse_repo(args.repo)
 
     reporter = ProgressReporter()
-    reporter.stage("Prepare markdown files", "Scanning for markdown files")
+    reporter.stage("Prepare agent guideline files", "Scanning for agent files")
 
-    # Define the markdown files to sync
-    markdown_files = ["Claude.md", "GEMINI.md", "AGENT.md"]
+    # Define the agent guideline files to sync
+    agent_files = ["Claude.md", "GEMINI.md", "AGENT.md"]
     base_path = Path.cwd()
     files_to_sync = []
 
     # Check which files exist
-    for md_file in markdown_files:
-        file_path = base_path / md_file
+    for agent_file in agent_files:
+        file_path = base_path / agent_file
         if file_path.exists():
-            files_to_sync.append((md_file, file_path))
-            reporter.info(f"Found {md_file}")
+            files_to_sync.append((agent_file, file_path))
+            reporter.info(f"Found {agent_file}")
         else:
-            reporter.info(f"Skipped {md_file} (not found)")
+            reporter.info(f"Skipped {agent_file} (not found)")
 
     if not files_to_sync:
-        print("❌ No markdown files found to sync (Claude.md, GEMINI.md, AGENT.md)", file=sys.stderr)
+        print("❌ No agent guideline files found to sync (Claude.md, GEMINI.md, AGENT.md)", file=sys.stderr)
         return 1
 
-    reporter.success(f"Found {len(files_to_sync)} markdown file(s) to sync")
+    reporter.success(f"Found {len(files_to_sync)} agent guideline file(s) to sync")
     reporter.flush("File preparation")
 
     # Get target branch
     reporter.stage("Inspect target branch", args.repo)
     target_branch = args.branch or client.get_default_branch(owner, repo)
-    commit_message = args.message or "📝 Sync markdown files (Claude.md, GEMINI.md, AGENT.md)"
+    commit_message = args.message or "🤖 Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md)"
 
     reporter.info(f"Target: {owner}/{repo}@{target_branch}")
     ref = client.get_ref(owner, repo, f"heads/{target_branch}")
@@ -360,8 +360,8 @@ def sync_markdown(args: argparse.Namespace) -> int:
     base_commit = client.get_git_commit(owner, repo, base_commit_sha)
     base_tree_sha = base_commit["tree"]["sha"]
 
-    # Create blobs and tree entries for each markdown file
-    reporter.stage("Upload markdown files", "Creating blobs")
+    # Create blobs and tree entries for each agent file
+    reporter.stage("Upload agent guideline files", "Creating blobs")
     tree_entries = []
 
     for file_name, file_path in files_to_sync:
@@ -393,7 +393,7 @@ def sync_markdown(args: argparse.Namespace) -> int:
     reporter.flush("Sync steps")
     reporter.list_panel("Updated files", [file_name for file_name, _ in files_to_sync])
     reporter.success(
-        f"Synced {len(files_to_sync)} markdown file(s) to {owner}/{repo}@{target_branch} ({commit['sha'][:7]})"
+        f"Synced {len(files_to_sync)} agent guideline file(s) to {owner}/{repo}@{target_branch} ({commit['sha'][:7]})"
     )
     reporter.flush("Results")
     return 0
@@ -531,33 +531,33 @@ def build_parser() -> argparse.ArgumentParser:
     )
     workflows_parser.set_defaults(func=sync_workflows)
 
-    markdown_parser = subparsers.add_parser(
-        "sync-markdown",
-        help="Sync Claude.md, GEMINI.md, and AGENT.md files to a GitHub repository",
+    agent_parser = subparsers.add_parser(
+        "sync-agent",
+        help="Sync AI agent guideline files (Claude.md, GEMINI.md, AGENT.md) to a GitHub repository",
     )
-    markdown_parser.add_argument(
+    agent_parser.add_argument(
         "--repo",
         required=True,
         help="Target repository in owner/name format",
     )
-    markdown_parser.add_argument(
+    agent_parser.add_argument(
         "--branch",
         help="Target branch to update (defaults to the repository's default branch)",
     )
-    markdown_parser.add_argument(
+    agent_parser.add_argument(
         "--message",
         help="Custom commit message for the sync",
     )
-    markdown_parser.add_argument(
+    agent_parser.add_argument(
         "--token",
         help="GitHub personal access token (defaults to the GITHUB_TOKEN env var)",
     )
-    markdown_parser.add_argument(
+    agent_parser.add_argument(
         "--force",
         action="store_true",
         help="Force update the target branch reference",
     )
-    markdown_parser.set_defaults(func=sync_markdown)
+    agent_parser.set_defaults(func=sync_agent)
 
     return parser
 

@@ -46,9 +46,9 @@ uv run gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 - `.env` (実行ディレクトリ) に設定した `GITHUB_TOKEN` などは自動で読み込まれます。
 - `--token` を指定すると明示的な PAT を利用できます。
 
-## 📝 Markdown ファイルを同期したい
+## 🤖 AI エージェントのガイドラインファイルを同期したい
 ```bash
-uv run gal sync-markdown --repo <owner>/<repo>
+uv run gal sync-agent --repo <owner>/<repo>
 ```
 
 - カレントディレクトリにある `Claude.md`, `GEMINI.md`, `AGENT.md` をリポジトリのルートに同期します。
@@ -60,20 +60,20 @@ uv run gal sync-markdown --repo <owner>/<repo>
 | --- | --- |
 | `--repo` | (必須) 同期先のリポジトリ (`owner/name` 形式)。 |
 | `--branch` | 書き込み先ブランチを変更したい場合に指定します (未指定ならデフォルトブランチ)。 |
-| `--message` | コミットメッセージを上書きします。デフォルトは `📝 Sync markdown files ...`。 |
+| `--message` | コミットメッセージを上書きします。デフォルトは `🤖 Sync AI agent guideline files ...`。 |
 | `--token` | GitHub personal access token (未指定なら `GITHUB_TOKEN` 環境変数を使用)。 |
 | `--force` | ブランチのリファレンス更新を強制したい場合に指定します。 |
 
 **使用例:**
 ```bash
 # デフォルトブランチに同期
-uv run gal sync-markdown --repo Sunwood-ai-labs/my-repo
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo
 
 # 特定のブランチに同期
-uv run gal sync-markdown --repo Sunwood-ai-labs/my-repo --branch develop
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo --branch develop
 
 # カスタムメッセージで同期
-uv run gal sync-markdown --repo Sunwood-ai-labs/my-repo --message "docs: update AI agent guidelines"
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo --message "docs: update AI agent guidelines"
 ```
 
 ## 🧾 Pages + index.html を含む同期の例
