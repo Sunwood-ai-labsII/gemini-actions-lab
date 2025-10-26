@@ -135,6 +135,21 @@ gal sync-secrets --repo <owner>/<repo> --env-file path/to/.secrets.env
 - リポジトリへ同期したい secrets は `.secrets.env` に分離してください（任意のファイルを `--env-file` で指定可）。
 - `GITHUB_TOKEN` 環境変数、または `--token` オプションで GitHub の個人アクセストークンを指定してください。
 
+### AIエージェントガイドラインの同期
+
+`.github/ai-guidelines` ディレクトリに格納されているAIエージェントガイドラインをリポジトリに同期できます。
+
+```bash
+# デフォルトブランチに同期
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo
+
+# 特定のブランチに同期
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo --branch develop
+
+# カスタムメッセージで同期
+uv run gal sync-agent --repo Sunwood-ai-labs/my-repo --message "docs: update AI agent guidelines"
+```
+
 ### 🚀 クイックスタート
 
 よく使う同期コマンドは下記のとおりです（Pages 連携とトップページのコピー込み）。
