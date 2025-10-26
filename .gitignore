@@ -19,3 +19,10 @@ discord-issue-bot/data/history.json
 discord-issue-bot/uv.lock
 .env.actions
 uv.lock
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/

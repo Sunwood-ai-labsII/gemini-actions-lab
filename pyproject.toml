@@ -18,6 +18,12 @@ dependencies = [
     "pyfiglet>=0.8.post1",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
 [project.scripts]
 "gemini-actions-lab-cli" = "gemini_actions_lab_cli.cli:main"
 "gal" = "gemini_actions_lab_cli.cli:main"
