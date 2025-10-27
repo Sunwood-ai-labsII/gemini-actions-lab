@@ -31,7 +31,8 @@ uv run gal sync-workflows \
 | `--branch` | 書き込み先ブランチを変更したい場合に指定します (未指定ならデフォルトブランチ)。 |
 | `--message` | コミットメッセージを上書きします。デフォルトは `✨ Sync .github directory ...`。 |
 | `--enable-pages-actions` | GitHub Pages のビルドソースを Actions に設定し、公開 URL をリポジトリの "Website" 欄へ反映します。 |
-| `--include-index` | テンプレート直下の `index.html` を同期し、Pages のトップページとして配置します。 |
+| `--include-index` | テンプレート直下の `index.html` を同期し、存在しない場合のみコピーします。 |
+| `--overwrite-index` | `--include-index` と併用し、既存の `index.html` も上書きしたいときに指定します。 |
 | `--clean` | 既存の `.github` ディレクトリや関連ファイルを削除したい場合に使用します。 |
 | `--force` | ブランチのリファレンス更新を強制したい場合に指定します。 |
 
@@ -87,7 +88,8 @@ uv run gal sync-workflows \
 ```
 
 - Pages が有効化されていないリポジトリでも、`--enable-pages-actions` で Actions デプロイに切り替わります。
-- `--include-index` と併用することでトップページ (`index.html`) も反映されます。
+- `--include-index` と併用することでトップページ (`index.html`) も反映されます (既存のファイルは保持されます)。
+- 既存の `index.html` を置き換えたい場合は `--overwrite-index` も指定してください。
 
 ---
 

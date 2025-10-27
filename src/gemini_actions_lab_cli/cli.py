@@ -181,6 +181,7 @@ def _sync_workflows_remote(
     force: bool,
     enable_pages: bool,
     extra_files: list[str] | None,
+    overwrite_extras: bool,
 ) -> int:
     owner_template, repo_template = parse_repo(template_repo)
     owner_target, repo_target = parse_repo(target_repo)
@@ -237,9 +238,12 @@ def _sync_workflows_remote(
 
     tree_entries = []
 
+    existing_tree: dict[str, Any] | None = None
+
     if clean:
         reporter.stage("Clean existing .github contents", "--clean option active")
-        tree = client.get_tree(owner_target, repo_target, base_tree_sha, recursive=True)
+        existing_tree = client.get_tree(owner_target, repo_target, base_tree_sha, recursive=True)
+        tree = existing_tree
         for item in tree.get("tree", []):
             path = item.get("path")
             if not path or not path.startswith(".github"):
@@ -252,6 +256,20 @@ def _sync_workflows_remote(
                 "type": item["type"],
                 "sha": None,
             })
+
+    if extra_files and not overwrite_extras:
+        extra_set = {path.lstrip("/") for path in extra_files}
+        if existing_tree is None:
+            existing_tree = client.get_tree(owner_target, repo_target, base_tree_sha, recursive=True)
+        tree = existing_tree
+        existing_paths = {item.get("path") for item in tree.get("tree", []) if item.get("type") == "blob"}
+        skipped = sorted(extra_set & existing_paths)
+        if skipped:
+            reporter.info(
+                "Preserving existing file(s) without overwriting: " + ", ".join(skipped)
+            )
+            payloads = [payload for payload in payloads if payload["path"] not in skipped]
+            new_paths.difference_update(skipped)
 
     for payload in payloads:
         blob_sha = client.create_blob(owner_target, repo_target, payload["content"])
@@ -426,16 +444,28 @@ def sync_workflows(args: argparse.Namespace) -> int:
             force=args.force,
             enable_pages=args.enable_pages_actions,
             extra_files=extra_files,
+            overwrite_extras=args.overwrite_index,
         )
 
     destination = Path(args.destination)
     reporter.stage("Start local sync", str(destination))
+    index_path = destination / "index.html"
+    index_exists_before = index_path.exists()
     written = extract_github_directory(
         archive,
         destination,
         clean=args.clean,
         extra_files=extra_files,
+        overwrite_extras=args.overwrite_index,
     )
+
+    if (
+        args.include_index
+        and not args.overwrite_index
+        and index_exists_before
+        and index_path not in written
+    ):
+        reporter.info("Preserved existing index.html without overwriting")
 
     reporter.flush("Sync steps")
     reporter.list_panel(
@@ -528,6 +558,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-index",
         action="store_true",
         help="Copy the template repository root index.html alongside the .github directory",
+    )
+    workflows_parser.add_argument(
+        "--overwrite-index",
+        action="store_true",
+        help="When used with --include-index, allow overwriting an existing index.html",
     )
     workflows_parser.set_defaults(func=sync_workflows)
 

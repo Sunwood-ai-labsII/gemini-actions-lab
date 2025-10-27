@@ -18,6 +18,8 @@ def extract_github_directory(
     destination: Path,
     clean: bool = False,
     extra_files: Iterable[str] | None = None,
+    *,
+    overwrite_extras: bool = False,
 ) -> list[Path]:
     """Extract the ``.github`` directory from a zip archive into ``destination``.
 
@@ -27,6 +29,8 @@ def extract_github_directory(
         clean: When True the existing ``.github`` directory is removed before
             writing new files.
         extra_files: Additional repository-relative files to extract (e.g. ``index.html``).
+        overwrite_extras: When ``True``, always overwrite files listed in ``extra_files``.
+            When ``False`` (default), existing files are preserved.
 
     Returns:
         A list with the paths of the files that were written.
@@ -65,6 +69,9 @@ def extract_github_directory(
                     continue
                 target_path = destination / relative_repo_path
                 extras_found.add(relative_repo_path)
+                if not overwrite_extras and target_path.exists():
+                    # Keep the existing file intact when extras are optional
+                    continue
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as source, open(target_path, "wb") as dest:
                 shutil.copyfileobj(source, dest)
