@@ -14,6 +14,7 @@ uv run gal sync-workflows --destination . --clean
 
 - `--template-repo` でテンプレートを差し替え可能です。
 - `--ref` でタグやブランチを固定できます。
+- `.github` 配下の既存ファイルはデフォで温存されるので安心だよ。すべて上書きしたいときは `--overwrite-github` を付けてね。
 - `--clean` を付けると既存の `.github` ディレクトリを削除してから展開します。
 
 ## 🌐 リモートリポジトリに直接同期したい
@@ -33,6 +34,7 @@ uv run gal sync-workflows \
 | `--enable-pages-actions` | GitHub Pages のビルドソースを Actions に設定し、公開 URL をリポジトリの "Website" 欄へ反映します。 |
 | `--include-index` | テンプレート直下の `index.html` を同期し、存在しない場合のみコピーします。 |
 | `--overwrite-index` | `--include-index` と併用し、既存の `index.html` も上書きしたいときに指定します。 |
+| `--overwrite-github` | `.github` 配下の既存ファイルもテンプレートで上書きしたいときに指定します。 |
 | `--clean` | 既存の `.github` ディレクトリや関連ファイルを削除したい場合に使用します。 |
 | `--force` | ブランチのリファレンス更新を強制したい場合に指定します。 |
 
@@ -89,6 +91,7 @@ uv run gal sync-workflows \
 
 - Pages が有効化されていないリポジトリでも、`--enable-pages-actions` で Actions デプロイに切り替わります。
 - `--include-index` と併用することでトップページ (`index.html`) も反映されます (既存のファイルは保持されます)。
+- `.github` 内の既存ワークフローを守りたい場合はそのままで OK。テンプレートで更新したいときは `--overwrite-github` を足してね。
 - 既存の `index.html` を置き換えたい場合は `--overwrite-index` も指定してください。
 
 ---

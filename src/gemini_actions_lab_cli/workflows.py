@@ -5,8 +5,17 @@ from __future__ import annotations
 import io
 import shutil
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+
+@dataclass(slots=True)
+class ExtractionResult:
+    """Outcome of extracting the template archive."""
+
+    written: list[Path]
+    skipped_existing: list[Path]
 
 
 class WorkflowSyncError(RuntimeError):
@@ -20,7 +29,8 @@ def extract_github_directory(
     extra_files: Iterable[str] | None = None,
     *,
     overwrite_extras: bool = False,
-) -> list[Path]:
+    overwrite_existing: bool = False,
+) -> ExtractionResult:
     """Extract the ``.github`` directory from a zip archive into ``destination``.
 
     Args:
@@ -31,15 +41,19 @@ def extract_github_directory(
         extra_files: Additional repository-relative files to extract (e.g. ``index.html``).
         overwrite_extras: When ``True``, always overwrite files listed in ``extra_files``.
             When ``False`` (default), existing files are preserved.
+        overwrite_existing: When ``True``, overwrite files inside ``.github`` that already
+            exist at the destination. When ``False`` (default), existing files are skipped.
 
     Returns:
-        A list with the paths of the files that were written.
+        An :class:`ExtractionResult` describing which files were written and which were
+        skipped because they already existed.
     """
 
     destination = destination.expanduser().resolve()
     github_root = destination / ".github"
     extras = {path.lstrip("/") for path in (extra_files or [])}
     extras_found: set[str] = set()
+    skipped_existing: list[Path] = []
 
     with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
         top_level_prefix = None
@@ -63,6 +77,7 @@ def extract_github_directory(
             if member.startswith(f"{top_level_prefix}/.github/"):
                 relative_path = member[len(f"{top_level_prefix}/"):]
                 target_path = destination / relative_path
+                is_github_file = True
             else:
                 relative_repo_path = member[len(f"{top_level_prefix}/"):]
                 if relative_repo_path not in extras:
@@ -71,7 +86,12 @@ def extract_github_directory(
                 extras_found.add(relative_repo_path)
                 if not overwrite_extras and target_path.exists():
                     # Keep the existing file intact when extras are optional
+                    skipped_existing.append(target_path)
                     continue
+                is_github_file = False
+            if is_github_file and not overwrite_existing and target_path.exists():
+                skipped_existing.append(target_path)
+                continue
             target_path.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as source, open(target_path, "wb") as dest:
                 shutil.copyfileobj(source, dest)
@@ -84,4 +104,4 @@ def extract_github_directory(
                 f"Template archive does not contain the expected files: {missing_repr}"
             )
 
-    return written
+    return ExtractionResult(written=written, skipped_existing=skipped_existing)
