@@ -329,7 +329,7 @@ def setup_commands(bot: discord.Client):
             await interaction.followup.send(f"作成失敗: タグ '{tag}' は既に存在します")
             return
 
-    @bot.tree.command(name="sync_env", description="GitHub Actions の環境変数を .env から同期します")
+    @bot.tree.command(name="sync_env", description="GitHub Actions のシークレット変数を .env から同期します（暗号化）")
     @app_commands.describe(
         repo="同期先リポジトリ (owner/repo)。未指定時は設定値や履歴を使用します",
         env_file="読み込む .env ファイル（デフォルト: DISCORD_ENV_SYNC_FILE）",
@@ -347,7 +347,7 @@ def setup_commands(bot: discord.Client):
     ):
         if not config.ENV_SYNC_ENABLED:
             await interaction.response.send_message(
-                "環境変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。"
+                "シークレット変数の同期は無効化されています。DISCORD_ENV_SYNC_ENABLED=1 を設定してください。"
             )
             return
 
@@ -408,7 +408,7 @@ def setup_commands(bot: discord.Client):
 
         await interaction.response.defer(thinking=True)
 
-        headline = f"🔄 `{target_repo}` への環境変数同期を開始します"
+        headline = f"🔄 `{target_repo}` へのシークレット変数同期を開始します（暗号化）"
         status_message = await interaction.followup.send(headline, wait=True)
 
         thread_name = f"sync-env {target_repo}".replace("/", "-")
@@ -457,7 +457,7 @@ def setup_commands(bot: discord.Client):
         await thread.send(
             f"⚙️ 同期対象キー数: {len(filtered)}\n"
             f"ファイル: `{str(env_path)}`\n"
-            "GitHub API リクエストを送信しています…"
+            "🔐 値を暗号化して GitHub API にリクエストを送信しています…"
         )
 
         result = sync_repository_variables(target_repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
@@ -471,12 +471,12 @@ def setup_commands(bot: discord.Client):
             return f"{preview}{'…' if len(value) > 4 else ''}" if value else "(空)"
 
         if result.created:
-            created_lines = ["✨ 新規作成したキー:"]
+            created_lines = ["✨ 新規作成したシークレット:"]
             created_lines.extend(f"- {name}: {masked(name)}" for name in result.created)
             await thread.send("\n".join(created_lines))
 
         if result.updated:
-            updated_lines = ["✅ 更新したキー:"]
+            updated_lines = ["✅ 更新/作成したシークレット:"]
             updated_lines.extend(f"- {name}: {masked(name)}" for name in result.updated)
             await thread.send("\n".join(updated_lines))
 

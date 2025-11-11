@@ -45,8 +45,9 @@ docker compose -f docker-compose.yaml logs -f
 - `/tag_latest`: 指定リポジトリの最新コミットに軽量タグを作成
   - 引数: `repo`(owner/repo), `tag`(作成したいタグ名), `branch`(任意; 省略時はデフォルトブランチ)
   - 例: `/tag_latest repo:owner/repo tag:v1.2.3`（デフォルトブランチ先頭に v1.2.3 を作成）
-- `/sync_env`: `.env` ファイルの内容を GitHub Actions リポジトリ変数へ同期（有効化時のみ表示）
-  - 事前準備: `GITHUB_TOKEN` に `actions:write` 相当の権限が必要、`DISCORD_ENV_SYNC_ENABLED=1` を設定
+- `/sync_env`: `.env` ファイルの内容を GitHub Actions シークレット変数へ暗号化して同期（有効化時のみ表示）
+  - 事前準備: `GITHUB_TOKEN` に `secrets:write` 相当の権限が必要、`DISCORD_ENV_SYNC_ENABLED=1` を設定
+  - **セキュリティ**: 値は GitHub の公開鍵で暗号化されてから送信され、シークレット変数として安全に保存されます
   - 引数: `repo`(owner/repo, 任意), `env_file`(任意), `include_keys`/`exclude_keys`(任意), `dry_run`(任意)
     - `include_keys`: 同期対象を絞りたいときにカンマ区切りで指定（未指定なら全キー）。例: `include_keys:SECRET_API_KEY,DISCORD_TOKEN`
     - `exclude_keys`: 除外したいキーをカンマ区切りで指定。例: `exclude_keys:TEST_TOKEN`
@@ -137,7 +138,8 @@ docker compose -f docker-compose.yaml logs -f
 - `DISCORD_ENV_SYNC_FILE`: 同期対象の `.env` ファイル（既定: `.env`）
 - `DISCORD_ENV_SYNC_REPO`: 既定の同期先リポジトリ。未指定時は履歴の先頭を利用
 - `DISCORD_ENV_SYNC_ALLOWED_USERS`: `,` 区切りの Discord ユーザー ID を指定すると実行権限を限定可能
-- `/sync_env` は GitHub Actions リポジトリ変数 API を利用し、成功・失敗のみをエフェメラルに通知します（値は表示しません）
+- `/sync_env` は GitHub Actions シークレット API を利用し、値を暗号化してから送信します（値は表示しません）
+- **重要**: 値は GitHub の公開鍵で暗号化されるため、PyNaCl ライブラリが必要です（依存関係に含まれています）
 
 ### リポジトリアウトコンプリート（任意強化）
 - `DISCORD_REPO_SUGGEST_ACCOUNTS`: 例 `Sunwood-ai-labs,Sunwood-ai-labsII`。指定したアカウントのリポジトリを候補に追加
