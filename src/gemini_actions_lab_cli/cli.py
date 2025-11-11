@@ -183,6 +183,8 @@ def _sync_workflows_remote(
     extra_files: list[str] | None,
     overwrite_extras: bool,
     overwrite_github: bool,
+    workflow_file: str | None = None,
+    use_remote: bool = False,
 ) -> int:
     owner_template, repo_template = parse_repo(template_repo)
     owner_target, repo_target = parse_repo(target_repo)
@@ -199,6 +201,8 @@ def _sync_workflows_remote(
             tmp_path,
             clean=True,
             extra_files=extra_files,
+            workflow_file=workflow_file,
+            use_remote=use_remote,
         )
         written = extraction.written
         if not written:
@@ -455,6 +459,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
     reporter.flush("Preparation")
 
     extra_files = ["index.html"] if args.include_index else None
+    workflow_file = getattr(args, "workflow", None)
+    use_remote = getattr(args, "use_remote", False)
 
     if args.repo:
         reporter.stage("Start remote sync", args.repo)
@@ -472,6 +478,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
             extra_files=extra_files,
             overwrite_extras=args.overwrite_index,
             overwrite_github=args.overwrite_github,
+            workflow_file=workflow_file,
+            use_remote=use_remote,
         )
 
     destination = Path(args.destination)
@@ -485,6 +493,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
         extra_files=extra_files,
         overwrite_extras=args.overwrite_index,
         overwrite_existing=args.overwrite_github,
+        workflow_file=workflow_file,
+        use_remote=use_remote,
     )
 
     if (
@@ -501,11 +511,20 @@ def sync_workflows(args: argparse.Namespace) -> int:
     )
     if preserved_local:
         reporter.list_panel("Preserved files", preserved_local)
-    reporter.list_panel(
-        "Updated files",
-        [path.relative_to(destination).as_posix() for path in extraction.written],
-    )
-    reporter.success("Local .github directory synchronized with template")
+    
+    # メッセージを条件分岐 🎯
+    if workflow_file:
+        reporter.list_panel(
+            "Updated workflow",
+            [path.relative_to(destination).as_posix() for path in extraction.written],
+        )
+        reporter.success(f"Workflow '{workflow_file}' synchronized from template")
+    else:
+        reporter.list_panel(
+            "Updated files",
+            [path.relative_to(destination).as_posix() for path in extraction.written],
+        )
+        reporter.success("Local .github directory synchronized with template")
     reporter.flush("Results")
     return 0
 
@@ -601,6 +620,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--overwrite-github",
         action="store_true",
         help="Allow overwriting existing files inside the .github directory",
+    )
+    workflows_parser.add_argument(
+        "--workflow",
+        help="Specific workflow file name to copy (e.g., 'gemini-release-notes-remote.yml')",
+    )
+    workflows_parser.add_argument(
+        "--use-remote",
+        action="store_true",
+        help="When used with --workflow, prefer .github/workflows_remote over .github/workflows",
     )
     workflows_parser.set_defaults(func=sync_workflows)
 

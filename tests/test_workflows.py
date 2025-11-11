@@ -11,7 +11,7 @@ import pytest
 
 from gemini_actions_lab_cli.cli import _sync_workflows_remote
 from gemini_actions_lab_cli.github_api import GitHubClient
-from gemini_actions_lab_cli.workflows import extract_github_directory
+from gemini_actions_lab_cli.workflows import extract_github_directory, WorkflowSyncError
 
 
 def _make_template_archive(files: dict[str, str]) -> bytes:
@@ -120,6 +120,16 @@ class TestSyncWorkflowsRemote:
         return _make_template_archive(
             {
                 ".github/workflows/test.yml": "name: CI",
+                "index.html": "<html>template</html>",
+            }
+        )
+    
+    @pytest.fixture
+    def archive_with_remote(self) -> bytes:
+        return _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: CI",
+                ".github/workflows_remote/remote-workflow.yml": "name: Remote CI",
                 "index.html": "<html>template</html>",
             }
         )
@@ -248,3 +258,151 @@ class TestSyncWorkflowsRemote:
 
         assert result == 0
         base_client.create_blob.assert_called_once()
+
+
+class TestExtractSpecificWorkflow:
+    """Tests for extracting specific workflow files."""
+
+    def test_extracts_specific_workflow_from_workflows(self, tmp_path: Path) -> None:
+        """Extract a specific workflow file from .github/workflows directory."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: CI",
+                ".github/workflows/another.yml": "name: Another",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive, 
+            destination, 
+            workflow_file="test.yml"
+        )
+
+        workflow_path = destination / ".github/workflows/test.yml"
+        another_path = destination / ".github/workflows/another.yml"
+        
+        assert workflow_path.exists()
+        assert workflow_path.read_text() == "name: CI"
+        assert not another_path.exists()
+        assert workflow_path in result.written
+
+    def test_extracts_workflow_from_workflows_remote(self, tmp_path: Path) -> None:
+        """Extract workflow from workflows_remote and save to workflows directory."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: CI",
+                ".github/workflows_remote/remote-workflow.yml": "name: Remote CI",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_file="remote-workflow.yml",
+            use_remote=True,
+        )
+
+        # workflows_remote から workflows にコピーされる 🎯
+        workflow_path = destination / ".github/workflows/remote-workflow.yml"
+        assert workflow_path.exists()
+        assert workflow_path.read_text() == "name: Remote CI"
+        assert workflow_path in result.written
+
+    def test_prefers_workflows_remote_when_use_remote_flag(self, tmp_path: Path) -> None:
+        """When use_remote is True, prefer workflows_remote over workflows."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: Regular CI",
+                ".github/workflows_remote/test.yml": "name: Remote CI",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_file="test.yml",
+            use_remote=True,
+        )
+
+        workflow_path = destination / ".github/workflows/test.yml"
+        assert workflow_path.exists()
+        assert workflow_path.read_text() == "name: Remote CI"
+
+    def test_falls_back_to_workflows_when_not_in_remote(self, tmp_path: Path) -> None:
+        """Falls back to workflows directory if workflow not found in workflows_remote."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: Regular CI",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_file="test.yml",
+            use_remote=True,  # workflows_remote を優先するがそこにないのでフォールバック
+        )
+
+        workflow_path = destination / ".github/workflows/test.yml"
+        assert workflow_path.exists()
+        assert workflow_path.read_text() == "name: Regular CI"
+
+    def test_raises_error_when_workflow_not_found(self, tmp_path: Path) -> None:
+        """Raises error when specified workflow file doesn't exist."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: CI",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        with pytest.raises(WorkflowSyncError, match="Workflow file 'nonexistent.yml' not found"):
+            extract_github_directory(
+                archive,
+                destination,
+                workflow_file="nonexistent.yml",
+            )
+
+    def test_specific_workflow_respects_overwrite_flag(self, tmp_path: Path) -> None:
+        """Specific workflow extraction respects overwrite_existing flag."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: New CI",
+            }
+        )
+        destination = tmp_path / "dest"
+        workflow_dir = destination / ".github/workflows"
+        workflow_dir.mkdir(parents=True)
+        workflow_path = workflow_dir / "test.yml"
+        workflow_path.write_text("name: Old CI")
+
+        # Without overwrite
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_file="test.yml",
+            overwrite_existing=False,
+        )
+
+        assert workflow_path.read_text() == "name: Old CI"
+        assert workflow_path in result.skipped_existing
+
+        # With overwrite
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_file="test.yml",
+            overwrite_existing=True,
+        )
+
+        assert workflow_path.read_text() == "name: New CI"
+        assert workflow_path in result.written
