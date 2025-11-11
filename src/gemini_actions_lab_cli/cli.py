@@ -665,7 +665,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     workflows_parser.add_argument(
         "--preset",
-        choices=["pr-review", "gemini-cli", "release", "imagen", "basic", "full-remote"],
+        choices=["pr-review", "gemini-cli", "release", "imagen", "basic", "full-remote", "standard"],
         help="Use a predefined set of workflows (overrides --workflow and --workflows)",
     )
     workflows_parser.add_argument(

@@ -147,6 +147,7 @@ uv run gal sync-workflows --preset basic --destination .
 | `imagen` | 画像生成 | Issue トリガーと手動実行 |
 | `basic` | 新規リポジトリ向け基本セット | CLI + PR レビュー (Kozaki) |
 | `full-remote` | すべてのリモートワークフロー | 全リモートワークフロー |
+| `standard` | 標準プロダクション構成 | CLI, Release Articles, Release Notes, PR Review 3種, Static Site の7つ |
 
 ### リモートリポジトリに直接同期
 

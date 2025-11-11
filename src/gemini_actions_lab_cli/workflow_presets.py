@@ -57,6 +57,19 @@ WORKFLOW_PRESETS = {
         ],
         "use_remote": True,
     },
+    "standard": {
+        "description": "Standard production workflows (CLI, Release, PR Review, Static Site)",
+        "workflows": [
+            "gemini-cli.yml",
+            "gemini-release-articles.yml",
+            "gemini-release-notes.yml",
+            "pr-review-kozaki.yml",
+            "pr-review-onizuka.yml",
+            "pr-review-yukimura.yml",
+            "static-site.yml",
+        ],
+        "use_remote": False,
+    },
 }
 
 

@@ -241,6 +241,7 @@ gal sync-workflows \
 - `imagen`: 画像生成ワークフロー
 - `basic`: 新規リポジトリ用の基本ワークフロー
 - `full-remote`: すべてのリモートワークフロー
+- `standard`: 標準プロダクションワークフロー（CLI, Release Articles, Release Notes, PR Review 3種, Static Site）
 
 **オプション説明:**
 - `--workflow`: コピーしたいワークフローファイル名（単一）
