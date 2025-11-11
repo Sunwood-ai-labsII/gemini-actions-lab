@@ -48,6 +48,25 @@
 
 ワークフローの構成・相互関係・実装詳細は、[.github/workflows/architecture.md](.github/workflows/architecture.md) に集約しています。
 
+### 🚀 リモートワークフロー（新機能）
+
+複数のリポジトリでワークフローを使いたい場合、**リモートワークフローシステム**を使うとメンテナンスが超楽になるよ〜✨
+
+**メリット:**
+- ✅ Pythonスクリプトのコピー不要（リモートから自動取得）
+- ✅ スクリプトの更新は1箇所でOK
+- ✅ メンテナンスコスト90%削減
+
+**使い方:**
+
+```bash
+# ワークフローファイルをコピー（スクリプトは不要！）
+curl -o .github/workflows/pr-review-kozaki.yml \
+  https://raw.githubusercontent.com/Sunwood-ai-labsII/gemini-actions-lab/main/.github/workflows_remote/pr-review-kozaki-remote.yml
+```
+
+詳細は [.github/workflows_remote/README.md](.github/workflows_remote/README.md) を参照！
+
 ---
 
 ## 🏗️ アーキテクチャ
