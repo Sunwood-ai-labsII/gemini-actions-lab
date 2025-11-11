@@ -94,6 +94,108 @@ uv run gal sync-workflows \
 - `.github` 内の既存ワークフローを守りたい場合はそのままで OK。テンプレートで更新したいときは `--overwrite-github` を足してね。
 - 既存の `index.html` を置き換えたい場合は `--overwrite-index` も指定してください。
 
+## 🎯 特定のワークフローだけコピーしたい（新機能！）
+
+`.github/workflows_remote` または `.github/workflows` から、指定したワークフローファイルだけを取得できます。全体を同期する必要がないときに便利だよ〜✨
+
+### 単一ワークフローのコピー
+
+```bash
+# workflows_remote から特定のワークフローをコピー 🎯
+uv run gal sync-workflows \
+  --workflow gemini-release-notes-remote.yml \
+  --use-remote \
+  --destination .
+
+# 通常の workflows から特定のワークフローをコピー
+uv run gal sync-workflows \
+  --workflow gemini-cli.yml \
+  --destination .
+```
+
+### 複数ワークフローのコピー（NEW！✨）
+
+```bash
+# 複数のワークフローを一度にコピー 🎯
+uv run gal sync-workflows \
+  --workflows gemini-cli.yml gemini-jp-cli.yml pr-review-kozaki-remote.yml \
+  --destination .
+```
+
+### プリセットの使用（NEW！✨）
+
+よく使う組み合わせをプリセットとして定義できます。
+
+```bash
+# 利用可能なプリセット一覧を表示
+uv run gal sync-workflows --list-presets
+
+# プリセットを使ってワークフローをコピー
+uv run gal sync-workflows --preset pr-review --destination .
+
+# 新規リポジトリ用の基本セット
+uv run gal sync-workflows --preset basic --destination .
+```
+
+**利用可能なプリセット:**
+
+| プリセット名 | 説明 | 含まれるワークフロー |
+| --- | --- | --- |
+| `pr-review` | PR レビューワークフロー | Kozaki, Onizuka, Yukimura の3つ |
+| `gemini-cli` | Gemini CLI ワークフロー | 英語版と日本語版 |
+| `release` | リリース自動化 | リリースノート生成 |
+| `imagen` | 画像生成 | Issue トリガーと手動実行 |
+| `basic` | 新規リポジトリ向け基本セット | CLI + PR レビュー (Kozaki) |
+| `full-remote` | すべてのリモートワークフロー | 全リモートワークフロー |
+| `standard` | 標準プロダクション構成 | CLI, Release Articles, Release Notes, PR Review 3種, Static Site の7つ |
+
+> **カスタムプリセットの追加**: プリセットは `src/gemini_actions_lab_cli/workflow_presets.yml` で管理されています。新しいプリセットを追加したい場合は、このYAMLファイルを編集してください✨
+
+### リモートリポジトリに直接同期
+
+```bash
+# 単一ワークフロー
+uv run gal sync-workflows \
+  --workflow pr-review-kozaki-remote.yml \
+  --use-remote \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+
+# 複数ワークフロー
+uv run gal sync-workflows \
+  --workflows gemini-cli.yml gemini-jp-cli.yml \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+
+# プリセット
+uv run gal sync-workflows \
+  --preset pr-review \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+```
+
+| オプション | 説明 |
+| --- | --- |
+| `--workflow` | コピーしたいワークフローファイル名（単一） |
+| `--workflows` | コピーしたいワークフローファイル名（複数、スペース区切り） |
+| `--preset` | プリセット名（`--workflow` や `--workflows` より優先） |
+| `--list-presets` | 利用可能なプリセット一覧を表示して終了 |
+| `--use-remote` | `.github/workflows_remote` から優先的に取得。見つからない場合は `workflows` から自動フォールバック |
+
+**動作の詳細:**
+- `--workflow` または `--workflows` を指定すると、指定したファイルだけが `.github/workflows` にコピーされます
+- `--preset` を使うと、事前定義された複数のワークフローをまとめてコピーできます
+- `--use-remote` フラグがあると、`.github/workflows_remote` を優先的に探します
+- `workflows_remote` に見つからない場合は、自動的に `.github/workflows` から取得します
+- `--overwrite-github` フラグで既存ファイルの上書きが可能です
+
+**使用例シナリオ:**
+1. **PRレビューだけ導入したい**: `--preset pr-review` で3つのレビューワークフローをまとめて導入
+2. **複数のワークフローを一度にコピー**: `--workflows` で必要なファイルを列挙
+3. **リモートワークフローを試したい**: `--use-remote` で `workflows_remote` から取得
+4. **新規リポジトリのセットアップ**: `--preset basic` で最小限の構成を一発導入
+5. **既存ワークフローを更新したい**: `--overwrite-github` を追加して上書き
+
 ---
 
 ## 🧪 テストの実行

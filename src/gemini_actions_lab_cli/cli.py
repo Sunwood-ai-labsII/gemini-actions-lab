@@ -22,6 +22,7 @@ from .env_loader import apply_env_file, load_env_file
 from .github_api import GitHubClient, GitHubError, encrypt_secret, parse_repo
 from .secrets import SecretSyncResult, sync_secrets_from_env_file, sync_repository_secrets
 from .workflows import WorkflowSyncError, extract_github_directory
+from .workflow_presets import get_preset_workflows, list_presets
 
 DEFAULT_TEMPLATE_REPO = "Sunwood-ai-labsII/gemini-actions-lab"
 DEFAULT_SECRETS_FILE = ".secrets.env"
@@ -183,6 +184,8 @@ def _sync_workflows_remote(
     extra_files: list[str] | None,
     overwrite_extras: bool,
     overwrite_github: bool,
+    workflow_files: list[str] | None = None,
+    use_remote: bool = False,
 ) -> int:
     owner_template, repo_template = parse_repo(template_repo)
     owner_target, repo_target = parse_repo(target_repo)
@@ -199,6 +202,8 @@ def _sync_workflows_remote(
             tmp_path,
             clean=True,
             extra_files=extra_files,
+            workflow_files=workflow_files,
+            use_remote=use_remote,
         )
         written = extraction.written
         if not written:
@@ -444,11 +449,44 @@ def sync_agent(args: argparse.Namespace) -> int:
 
 
 def sync_workflows(args: argparse.Namespace) -> int:
+    # プリセット一覧表示 🎯
+    if hasattr(args, "list_presets") and args.list_presets:
+        print("📋 Available workflow presets:\n")
+        for name, description in list_presets():
+            print(f"  • {name:15} - {description}")
+        print("\nUsage: gal sync-workflows --preset <preset-name> --destination .")
+        return 0
+    
     token = args.token or os.getenv("GITHUB_TOKEN")
     client = GitHubClient(token=token, api_url=args.api_url)
     owner, repo = parse_repo(args.template_repo)
 
     reporter = ProgressReporter()
+    
+    # プリセット処理 🎯
+    workflow_files = None
+    use_remote = getattr(args, "use_remote", False)
+    
+    if hasattr(args, "preset") and args.preset:
+        reporter.stage("Load workflow preset", args.preset)
+        try:
+            preset_workflows, preset_use_remote = get_preset_workflows(args.preset)
+            workflow_files = preset_workflows
+            # プリセットの use_remote を優先（明示的に指定されていない場合）
+            if not args.use_remote:
+                use_remote = preset_use_remote
+            reporter.success(f"Loaded preset '{args.preset}' with {len(workflow_files)} workflows")
+        except KeyError as exc:
+            print(f"❌ {exc}", file=sys.stderr)
+            return 1
+    elif hasattr(args, "workflows") and args.workflows:
+        # 複数ワークフロー指定
+        workflow_files = args.workflows
+        reporter.stage("Prepare workflow files", f"{len(workflow_files)} files specified")
+    elif hasattr(args, "workflow") and args.workflow:
+        # 単一ワークフロー指定（下位互換性）
+        workflow_files = [args.workflow]
+    
     reporter.stage("Fetch template archive", f"{owner}/{repo}")
     archive = client.download_repository_archive(owner, repo, ref=args.ref)
     reporter.success("Archive download completed")
@@ -472,6 +510,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
             extra_files=extra_files,
             overwrite_extras=args.overwrite_index,
             overwrite_github=args.overwrite_github,
+            workflow_files=workflow_files,
+            use_remote=use_remote,
         )
 
     destination = Path(args.destination)
@@ -485,6 +525,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
         extra_files=extra_files,
         overwrite_extras=args.overwrite_index,
         overwrite_existing=args.overwrite_github,
+        workflow_files=workflow_files,
+        use_remote=use_remote,
     )
 
     if (
@@ -501,11 +543,21 @@ def sync_workflows(args: argparse.Namespace) -> int:
     )
     if preserved_local:
         reporter.list_panel("Preserved files", preserved_local)
-    reporter.list_panel(
-        "Updated files",
-        [path.relative_to(destination).as_posix() for path in extraction.written],
-    )
-    reporter.success("Local .github directory synchronized with template")
+    
+    # メッセージを条件分岐 🎯
+    if workflow_files:
+        reporter.list_panel(
+            f"Updated workflow{'s' if len(workflow_files) > 1 else ''}",
+            [path.relative_to(destination).as_posix() for path in extraction.written],
+        )
+        count = len(workflow_files)
+        reporter.success(f"{count} workflow{'s' if count > 1 else ''} synchronized from template")
+    else:
+        reporter.list_panel(
+            "Updated files",
+            [path.relative_to(destination).as_posix() for path in extraction.written],
+        )
+        reporter.success("Local .github directory synchronized with template")
     reporter.flush("Results")
     return 0
 
@@ -601,6 +653,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--overwrite-github",
         action="store_true",
         help="Allow overwriting existing files inside the .github directory",
+    )
+    workflows_parser.add_argument(
+        "--workflow",
+        help="Specific workflow file name to copy (e.g., 'gemini-release-notes-remote.yml')",
+    )
+    workflows_parser.add_argument(
+        "--workflows",
+        nargs="+",
+        help="Multiple workflow file names to copy (e.g., 'gemini-cli.yml' 'pr-review-kozaki-remote.yml')",
+    )
+    workflows_parser.add_argument(
+        "--preset",
+        choices=["pr-review", "gemini-cli", "release", "imagen", "basic", "full-remote", "standard"],
+        help="Use a predefined set of workflows (overrides --workflow and --workflows)",
+    )
+    workflows_parser.add_argument(
+        "--list-presets",
+        action="store_true",
+        help="List all available workflow presets and exit",
+    )
+    workflows_parser.add_argument(
+        "--use-remote",
+        action="store_true",
+        help="When used with --workflow(s), prefer .github/workflows_remote over .github/workflows",
     )
     workflows_parser.set_defaults(func=sync_workflows)
 
