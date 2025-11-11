@@ -52,6 +52,10 @@ presets:
   standard:
     description: "Standard production workflows (CLI, Release, PR Review, Static Site)"
     use_remote: false
+    prompts:
+      - release-image.en.txt
+    agents:
+      - gal-agent.agent.md
     workflows:
       - gemini-cli.yml
       - gemini-release-articles.yml
