@@ -2,75 +2,48 @@
 
 from __future__ import annotations
 
-# プリセット定義 🎯
-WORKFLOW_PRESETS = {
-    "pr-review": {
-        "description": "PR review workflows (Kozaki, Onizuka, Yukimura)",
-        "workflows": [
-            "pr-review-kozaki-remote.yml",
-            "pr-review-onizuka-remote.yml",
-            "pr-review-yukimura-remote.yml",
-        ],
-        "use_remote": True,
-    },
-    "gemini-cli": {
-        "description": "Gemini CLI workflows (English and Japanese)",
-        "workflows": [
-            "gemini-cli.yml",
-            "gemini-jp-cli.yml",
-        ],
-        "use_remote": False,
-    },
-    "release": {
-        "description": "Release automation workflows",
-        "workflows": [
-            "gemini-release-notes-remote.yml",
-        ],
-        "use_remote": True,
-    },
-    "imagen": {
-        "description": "Image generation workflows",
-        "workflows": [
-            "imagen4-issue-trigger-and-commit.yml",
-            "imagen4-generate-and-commit.yml",
-        ],
-        "use_remote": False,
-    },
-    "basic": {
-        "description": "Basic workflows for new repositories",
-        "workflows": [
-            "gemini-cli.yml",
-            "gemini-jp-cli.yml",
-            "pr-review-kozaki-remote.yml",
-        ],
-        "use_remote": False,  # CLI は workflows、PR review は remote から
-    },
-    "full-remote": {
-        "description": "All remote workflows",
-        "workflows": [
-            "pr-review-kozaki-remote.yml",
-            "pr-review-onizuka-remote.yml",
-            "pr-review-yukimura-remote.yml",
-            "gemini-release-notes-remote.yml",
-            "example-remote-script.yml",
-            "huggingface-space-deploy-remote.yml",
-        ],
-        "use_remote": True,
-    },
-    "standard": {
-        "description": "Standard production workflows (CLI, Release, PR Review, Static Site)",
-        "workflows": [
-            "gemini-cli.yml",
-            "gemini-release-articles.yml",
-            "gemini-release-notes.yml",
-            "pr-review-kozaki.yml",
-            "pr-review-onizuka.yml",
-            "pr-review-yukimura.yml",
-            "static-site.yml",
-        ],
-        "use_remote": False,
-    },
-}
+import os
+from pathlib import Path
+from typing import Any
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore
+
+
+def _load_presets() -> dict[str, Any]:
+    """Load workflow presets from YAML file.
+    
+    Returns:
+        Dictionary of preset configurations.
+    """
+    if yaml is None:
+        raise ImportError(
+            "PyYAML is required to load workflow presets. "
+            "Install it with: pip install pyyaml"
+        )
+    
+    # プリセットファイルのパスを取得 🎯
+    presets_file = Path(__file__).parent / "workflow_presets.yml"
+    
+    if not presets_file.exists():
+        raise FileNotFoundError(f"Presets file not found: {presets_file}")
+    
+    with open(presets_file, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    
+    return data.get("presets", {})
+
+
+# プリセット定義をYAMLから読み込み 🎯
+try:
+    WORKFLOW_PRESETS = _load_presets()
+except (ImportError, FileNotFoundError) as e:
+    # フォールバック: YAMLが読めない場合は空の辞書
+    WORKFLOW_PRESETS = {}
+    import warnings
+    warnings.warn(f"Failed to load workflow presets: {e}", UserWarning)
 
 
 def get_preset_workflows(preset_name: str) -> tuple[list[str], bool]:
@@ -105,3 +78,4 @@ def list_presets() -> list[tuple[str, str]]:
         (name, preset["description"])
         for name, preset in sorted(WORKFLOW_PRESETS.items())
     ]
+

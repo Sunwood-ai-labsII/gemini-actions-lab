@@ -149,6 +149,8 @@ uv run gal sync-workflows --preset basic --destination .
 | `full-remote` | すべてのリモートワークフロー | 全リモートワークフロー |
 | `standard` | 標準プロダクション構成 | CLI, Release Articles, Release Notes, PR Review 3種, Static Site の7つ |
 
+> **カスタムプリセットの追加**: プリセットは `src/gemini_actions_lab_cli/workflow_presets.yml` で管理されています。新しいプリセットを追加したい場合は、このYAMLファイルを編集してください✨
+
 ### リモートリポジトリに直接同期
 
 ```bash

@@ -243,6 +243,8 @@ gal sync-workflows \
 - `full-remote`: すべてのリモートワークフロー
 - `standard`: 標準プロダクションワークフロー（CLI, Release Articles, Release Notes, PR Review 3種, Static Site）
 
+> **Note**: プリセットは `src/gemini_actions_lab_cli/workflow_presets.yml` で管理されています。カスタムプリセットを追加したい場合は、このYAMLファイルを編集してください✨
+
 **オプション説明:**
 - `--workflow`: コピーしたいワークフローファイル名（単一）
 - `--workflows`: コピーしたいワークフローファイル名（複数、スペース区切り）
