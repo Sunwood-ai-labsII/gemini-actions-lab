@@ -31,6 +31,7 @@ def extract_github_directory(
     overwrite_extras: bool = False,
     overwrite_existing: bool = False,
     workflow_file: str | None = None,
+    workflow_files: list[str] | None = None,
     use_remote: bool = False,
 ) -> ExtractionResult:
     """Extract the ``.github`` directory from a zip archive into ``destination``.
@@ -47,7 +48,9 @@ def extract_github_directory(
             exist at the destination. When ``False`` (default), existing files are skipped.
         workflow_file: Optional specific workflow file name to extract from workflows or 
             workflows_remote directory. When provided, only this file is extracted.
-        use_remote: When True with workflow_file, prefer workflows_remote over workflows 
+        workflow_files: Optional list of workflow file names to extract. Takes precedence
+            over workflow_file if both are provided.
+        use_remote: When True with workflow_file(s), prefer workflows_remote over workflows 
             directory.
 
     Returns:
@@ -73,33 +76,41 @@ def extract_github_directory(
         else:
             raise WorkflowSyncError("Template archive does not contain a .github directory")
         
-        # 特定のワークフローファイル指定時の処理 🎯
-        if workflow_file:
-            workflow_paths = []
-            if use_remote:
-                # workflows_remote を優先
-                workflow_paths = [
-                    f"{top_level_prefix}/.github/workflows_remote/{workflow_file}",
-                    f"{top_level_prefix}/.github/workflows/{workflow_file}",
-                ]
-            else:
-                # workflows を優先
-                workflow_paths = [
-                    f"{top_level_prefix}/.github/workflows/{workflow_file}",
-                    f"{top_level_prefix}/.github/workflows_remote/{workflow_file}",
-                ]
+        # 複数ワークフローファイル指定時の処理 🎯
+        target_workflows = workflow_files or ([workflow_file] if workflow_file else None)
+        
+        if target_workflows:
+            # 各ワークフローファイルのパスを検索
+            found_workflows: dict[str, str] = {}  # filename -> archive_path
             
-            found_workflow = None
-            for wf_path in workflow_paths:
-                if wf_path in archive.namelist():
-                    found_workflow = wf_path
-                    break
-            
-            if not found_workflow:
-                raise WorkflowSyncError(
-                    f"Workflow file '{workflow_file}' not found in .github/workflows"
-                    f"{' or .github/workflows_remote' if use_remote else ''}"
-                )
+            for wf_file in target_workflows:
+                workflow_paths = []
+                if use_remote:
+                    # workflows_remote を優先
+                    workflow_paths = [
+                        f"{top_level_prefix}/.github/workflows_remote/{wf_file}",
+                        f"{top_level_prefix}/.github/workflows/{wf_file}",
+                    ]
+                else:
+                    # workflows を優先
+                    workflow_paths = [
+                        f"{top_level_prefix}/.github/workflows/{wf_file}",
+                        f"{top_level_prefix}/.github/workflows_remote/{wf_file}",
+                    ]
+                
+                found = None
+                for wf_path in workflow_paths:
+                    if wf_path in archive.namelist():
+                        found = wf_path
+                        break
+                
+                if found:
+                    found_workflows[wf_file] = found
+                else:
+                    raise WorkflowSyncError(
+                        f"Workflow file '{wf_file}' not found in .github/workflows"
+                        f"{' or .github/workflows_remote' if use_remote else ''}"
+                    )
 
         if clean and github_root.exists():
             shutil.rmtree(github_root)
@@ -109,13 +120,21 @@ def extract_github_directory(
             if member.endswith("/"):
                 continue
             
-            # 特定のワークフローファイル指定時は、そのファイルだけを処理 🎯
-            if workflow_file:
-                if member != found_workflow:
+            # 複数ワークフローファイル指定時は、それらのファイルだけを処理 🎯
+            if target_workflows:
+                # このメンバーが対象ワークフローかチェック
+                matched_wf = None
+                for wf_file, wf_path in found_workflows.items():
+                    if member == wf_path:
+                        matched_wf = wf_file
+                        break
+                
+                if not matched_wf:
                     continue
+                
                 # workflows_remote からの場合は workflows にコピー
                 if "workflows_remote" in member:
-                    relative_path = f".github/workflows/{workflow_file}"
+                    relative_path = f".github/workflows/{matched_wf}"
                 else:
                     relative_path = member[len(f"{top_level_prefix}/"):]
                 target_path = destination / relative_path
@@ -152,8 +171,8 @@ def extract_github_directory(
                 shutil.copyfileobj(source, dest)
             written.append(target_path)
 
-        # extra_files のチェックは workflow_file 指定時はスキップ 🎯
-        if not workflow_file:
+        # extra_files のチェックは workflow 指定時はスキップ 🎯
+        if not target_workflows:
             missing_extras = extras - extras_found
             if missing_extras:
                 missing_repr = ", ".join(sorted(missing_extras))

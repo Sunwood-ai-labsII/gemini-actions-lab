@@ -184,7 +184,9 @@ gal sync-workflows \
 
 ### 🎯 特定のワークフローのコピー（新機能！）
 
-`.github/workflows_remote` にあるワークフローファイルを、指定したファイル名だけコピーできます。
+`.github/workflows_remote` または `.github/workflows` から、指定したワークフローファイルをコピーできます。
+
+#### 単一のワークフローをコピー
 
 ```bash
 # workflows_remote から特定のワークフローをコピー 🎯
@@ -197,19 +199,56 @@ gal sync-workflows \
 gal sync-workflows \
   --workflow gemini-cli.yml \
   --destination .
+```
 
-# リモートリポジトリに直接同期することも可能！
+#### 複数のワークフローをコピー（NEW！✨）
+
+```bash
+# 複数のワークフローを一度にコピー 🎯
 gal sync-workflows \
-  --workflow pr-review-kozaki-remote.yml \
-  --use-remote \
+  --workflows gemini-cli.yml gemini-jp-cli.yml pr-review-kozaki-remote.yml \
+  --destination .
+
+# リモートリポジトリに直接同期
+gal sync-workflows \
+  --workflows gemini-cli.yml gemini-jp-cli.yml \
   --repo Sunwood-ai-labs/my-repo \
   --overwrite-github
 ```
 
+#### プリセットの使用（NEW！✨）
+
+よく使う組み合わせをプリセットとして用意しています。
+
+```bash
+# 利用可能なプリセット一覧を表示
+gal sync-workflows --list-presets
+
+# プリセットを使ってワークフローをコピー
+gal sync-workflows --preset pr-review --destination .
+
+# プリセット + リモート同期
+gal sync-workflows \
+  --preset basic \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+```
+
+**利用可能なプリセット:**
+- `pr-review`: PR レビューワークフロー（Kozaki, Onizuka, Yukimura）
+- `gemini-cli`: Gemini CLI ワークフロー（英語＋日本語）
+- `release`: リリース自動化ワークフロー
+- `imagen`: 画像生成ワークフロー
+- `basic`: 新規リポジトリ用の基本ワークフロー
+- `full-remote`: すべてのリモートワークフロー
+
 **オプション説明:**
-- `--workflow`: コピーしたいワークフローファイル名（例: `gemini-release-notes-remote.yml`）
+- `--workflow`: コピーしたいワークフローファイル名（単一）
+- `--workflows`: コピーしたいワークフローファイル名（複数、スペース区切り）
+- `--preset`: プリセット名（`--workflow` や `--workflows` より優先）
 - `--use-remote`: `.github/workflows_remote` から優先的に取得（なければ `workflows` から自動フォールバック）
 - `--overwrite-github`: 既存ファイルを上書き
+- `--list-presets`: 利用可能なプリセット一覧を表示
 
 > `uv run` を利用して開発用に実行する場合は、`uv run gal ...` と置き換えてください。
 

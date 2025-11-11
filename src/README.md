@@ -98,7 +98,8 @@ uv run gal sync-workflows \
 
 `.github/workflows_remote` または `.github/workflows` から、指定したワークフローファイルだけを取得できます。全体を同期する必要がないときに便利だよ〜✨
 
-### ローカルにコピー
+### 単一ワークフローのコピー
+
 ```bash
 # workflows_remote から特定のワークフローをコピー 🎯
 uv run gal sync-workflows \
@@ -112,31 +113,85 @@ uv run gal sync-workflows \
   --destination .
 ```
 
-### リモートリポジトリに直接同期
+### 複数ワークフローのコピー（NEW！✨）
+
 ```bash
-# リモートリポジトリの .github/workflows に直接コピー
+# 複数のワークフローを一度にコピー 🎯
+uv run gal sync-workflows \
+  --workflows gemini-cli.yml gemini-jp-cli.yml pr-review-kozaki-remote.yml \
+  --destination .
+```
+
+### プリセットの使用（NEW！✨）
+
+よく使う組み合わせをプリセットとして定義できます。
+
+```bash
+# 利用可能なプリセット一覧を表示
+uv run gal sync-workflows --list-presets
+
+# プリセットを使ってワークフローをコピー
+uv run gal sync-workflows --preset pr-review --destination .
+
+# 新規リポジトリ用の基本セット
+uv run gal sync-workflows --preset basic --destination .
+```
+
+**利用可能なプリセット:**
+
+| プリセット名 | 説明 | 含まれるワークフロー |
+| --- | --- | --- |
+| `pr-review` | PR レビューワークフロー | Kozaki, Onizuka, Yukimura の3つ |
+| `gemini-cli` | Gemini CLI ワークフロー | 英語版と日本語版 |
+| `release` | リリース自動化 | リリースノート生成 |
+| `imagen` | 画像生成 | Issue トリガーと手動実行 |
+| `basic` | 新規リポジトリ向け基本セット | CLI + PR レビュー (Kozaki) |
+| `full-remote` | すべてのリモートワークフロー | 全リモートワークフロー |
+
+### リモートリポジトリに直接同期
+
+```bash
+# 単一ワークフロー
 uv run gal sync-workflows \
   --workflow pr-review-kozaki-remote.yml \
   --use-remote \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+
+# 複数ワークフロー
+uv run gal sync-workflows \
+  --workflows gemini-cli.yml gemini-jp-cli.yml \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+
+# プリセット
+uv run gal sync-workflows \
+  --preset pr-review \
   --repo Sunwood-ai-labs/my-repo \
   --overwrite-github
 ```
 
 | オプション | 説明 |
 | --- | --- |
-| `--workflow` | コピーしたいワークフローファイル名（例: `gemini-release-notes-remote.yml`） |
+| `--workflow` | コピーしたいワークフローファイル名（単一） |
+| `--workflows` | コピーしたいワークフローファイル名（複数、スペース区切り） |
+| `--preset` | プリセット名（`--workflow` や `--workflows` より優先） |
+| `--list-presets` | 利用可能なプリセット一覧を表示して終了 |
 | `--use-remote` | `.github/workflows_remote` から優先的に取得。見つからない場合は `workflows` から自動フォールバック |
 
 **動作の詳細:**
-- `--workflow` を指定すると、そのファイルだけが `.github/workflows` にコピーされます
+- `--workflow` または `--workflows` を指定すると、指定したファイルだけが `.github/workflows` にコピーされます
+- `--preset` を使うと、事前定義された複数のワークフローをまとめてコピーできます
 - `--use-remote` フラグがあると、`.github/workflows_remote` を優先的に探します
 - `workflows_remote` に見つからない場合は、自動的に `.github/workflows` から取得します
 - `--overwrite-github` フラグで既存ファイルの上書きが可能です
 
 **使用例シナリオ:**
-1. **リモートワークフローを試したい**: `--use-remote` で `workflows_remote` から取得
-2. **標準ワークフローだけ欲しい**: `--workflow` だけ指定して通常の `workflows` から取得
-3. **既存ワークフローを更新したい**: `--overwrite-github` を追加して上書き
+1. **PRレビューだけ導入したい**: `--preset pr-review` で3つのレビューワークフローをまとめて導入
+2. **複数のワークフローを一度にコピー**: `--workflows` で必要なファイルを列挙
+3. **リモートワークフローを試したい**: `--use-remote` で `workflows_remote` から取得
+4. **新規リポジトリのセットアップ**: `--preset basic` で最小限の構成を一発導入
+5. **既存ワークフローを更新したい**: `--overwrite-github` を追加して上書き
 
 ---
 

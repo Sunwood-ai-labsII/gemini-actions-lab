@@ -406,3 +406,108 @@ class TestExtractSpecificWorkflow:
 
         assert workflow_path.read_text() == "name: New CI"
         assert workflow_path in result.written
+
+
+class TestExtractMultipleWorkflows:
+    """Tests for extracting multiple workflow files at once."""
+
+    def test_extracts_multiple_workflows(self, tmp_path: Path) -> None:
+        """Extract multiple specific workflow files."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test1.yml": "name: CI 1",
+                ".github/workflows/test2.yml": "name: CI 2",
+                ".github/workflows/test3.yml": "name: CI 3",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_files=["test1.yml", "test2.yml"],
+        )
+
+        workflow1_path = destination / ".github/workflows/test1.yml"
+        workflow2_path = destination / ".github/workflows/test2.yml"
+        workflow3_path = destination / ".github/workflows/test3.yml"
+
+        assert workflow1_path.exists()
+        assert workflow1_path.read_text() == "name: CI 1"
+        assert workflow2_path.exists()
+        assert workflow2_path.read_text() == "name: CI 2"
+        assert not workflow3_path.exists()
+        assert len(result.written) == 2
+
+    def test_extracts_multiple_from_workflows_remote(self, tmp_path: Path) -> None:
+        """Extract multiple workflows from workflows_remote directory."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test.yml": "name: Regular",
+                ".github/workflows_remote/remote1.yml": "name: Remote 1",
+                ".github/workflows_remote/remote2.yml": "name: Remote 2",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_files=["remote1.yml", "remote2.yml"],
+            use_remote=True,
+        )
+
+        remote1_path = destination / ".github/workflows/remote1.yml"
+        remote2_path = destination / ".github/workflows/remote2.yml"
+
+        assert remote1_path.exists()
+        assert remote1_path.read_text() == "name: Remote 1"
+        assert remote2_path.exists()
+        assert remote2_path.read_text() == "name: Remote 2"
+        assert len(result.written) == 2
+
+    def test_mixed_workflows_and_workflows_remote(self, tmp_path: Path) -> None:
+        """Extract workflows from both workflows and workflows_remote directories."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/regular.yml": "name: Regular",
+                ".github/workflows_remote/remote.yml": "name: Remote",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        result = extract_github_directory(
+            archive,
+            destination,
+            workflow_files=["regular.yml", "remote.yml"],
+            use_remote=False,  # workflows 優先だけど remote も探す
+        )
+
+        regular_path = destination / ".github/workflows/regular.yml"
+        remote_path = destination / ".github/workflows/remote.yml"
+
+        assert regular_path.exists()
+        assert regular_path.read_text() == "name: Regular"
+        assert remote_path.exists()
+        assert remote_path.read_text() == "name: Remote"
+        assert len(result.written) == 2
+
+    def test_raises_error_when_one_workflow_not_found(self, tmp_path: Path) -> None:
+        """Raises error when any of the specified workflows doesn't exist."""
+        archive = _make_template_archive(
+            {
+                ".github/workflows/test1.yml": "name: CI 1",
+            }
+        )
+        destination = tmp_path / "dest"
+        destination.mkdir()
+
+        with pytest.raises(WorkflowSyncError, match="Workflow file 'missing.yml' not found"):
+            extract_github_directory(
+                archive,
+                destination,
+                workflow_files=["test1.yml", "missing.yml"],
+            )
