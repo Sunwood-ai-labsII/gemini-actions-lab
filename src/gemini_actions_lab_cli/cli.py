@@ -185,6 +185,8 @@ def _sync_workflows_remote(
     overwrite_extras: bool,
     overwrite_github: bool,
     workflow_files: list[str] | None = None,
+    prompt_files: list[str] | None = None,
+    agent_files: list[str] | None = None,
     use_remote: bool = False,
 ) -> int:
     owner_template, repo_template = parse_repo(template_repo)
@@ -203,6 +205,8 @@ def _sync_workflows_remote(
             clean=True,
             extra_files=extra_files,
             workflow_files=workflow_files,
+            prompt_files=prompt_files,
+            agent_files=agent_files,
             use_remote=use_remote,
         )
         written = extraction.written
@@ -465,17 +469,31 @@ def sync_workflows(args: argparse.Namespace) -> int:
     
     # プリセット処理 🎯
     workflow_files = None
+    prompt_files = None
+    agent_files = None
     use_remote = getattr(args, "use_remote", False)
-    
+
     if hasattr(args, "preset") and args.preset:
         reporter.stage("Load workflow preset", args.preset)
         try:
-            preset_workflows, preset_use_remote = get_preset_workflows(args.preset)
+            preset_workflows, preset_use_remote, preset_prompts, preset_agents = get_preset_workflows(args.preset)
             workflow_files = preset_workflows
+            prompt_files = preset_prompts
+            agent_files = preset_agents
             # プリセットの use_remote を優先（明示的に指定されていない場合）
             if not args.use_remote:
                 use_remote = preset_use_remote
-            reporter.success(f"Loaded preset '{args.preset}' with {len(workflow_files)} workflows")
+
+            # 読み込まれたファイルのサマリーを表示
+            summary_parts = []
+            if workflow_files:
+                summary_parts.append(f"{len(workflow_files)} workflow(s)")
+            if prompt_files:
+                summary_parts.append(f"{len(prompt_files)} prompt(s)")
+            if agent_files:
+                summary_parts.append(f"{len(agent_files)} agent(s)")
+            summary = ", ".join(summary_parts) if summary_parts else "no files"
+            reporter.success(f"Loaded preset '{args.preset}' with {summary}")
         except KeyError as exc:
             print(f"❌ {exc}", file=sys.stderr)
             return 1
@@ -511,10 +529,12 @@ def sync_workflows(args: argparse.Namespace) -> int:
             overwrite_extras=args.overwrite_index,
             overwrite_github=args.overwrite_github,
             workflow_files=workflow_files,
+            prompt_files=prompt_files,
+            agent_files=agent_files,
             use_remote=use_remote,
         )
 
-    destination = Path(args.destination)
+    destination = Path(args.destination).expanduser().resolve()
     reporter.stage("Start local sync", str(destination))
     index_path = destination / "index.html"
     index_exists_before = index_path.exists()
@@ -526,6 +546,8 @@ def sync_workflows(args: argparse.Namespace) -> int:
         overwrite_extras=args.overwrite_index,
         overwrite_existing=args.overwrite_github,
         workflow_files=workflow_files,
+        prompt_files=prompt_files,
+        agent_files=agent_files,
         use_remote=use_remote,
     )
 

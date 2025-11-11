@@ -46,15 +46,16 @@ except (ImportError, FileNotFoundError) as e:
     warnings.warn(f"Failed to load workflow presets: {e}", UserWarning)
 
 
-def get_preset_workflows(preset_name: str) -> tuple[list[str], bool]:
-    """Get workflow list and use_remote flag for a preset.
-    
+def get_preset_workflows(preset_name: str) -> tuple[list[str], bool, list[str] | None, list[str] | None]:
+    """Get workflow list, use_remote flag, prompts, and agents for a preset.
+
     Args:
         preset_name: Name of the preset to retrieve.
-        
+
     Returns:
-        Tuple of (workflow_list, use_remote_flag).
-        
+        Tuple of (workflow_list, use_remote_flag, prompt_files, agent_files).
+        prompt_files and agent_files can be None if not specified in the preset.
+
     Raises:
         KeyError: If preset_name doesn't exist.
     """
@@ -63,9 +64,14 @@ def get_preset_workflows(preset_name: str) -> tuple[list[str], bool]:
         raise KeyError(
             f"Unknown preset '{preset_name}'. Available presets: {available}"
         )
-    
+
     preset = WORKFLOW_PRESETS[preset_name]
-    return preset["workflows"], preset["use_remote"]
+    workflows = preset["workflows"]
+    use_remote = preset["use_remote"]
+    prompts = preset.get("prompts")  # Optional
+    agents = preset.get("agents")    # Optional
+
+    return workflows, use_remote, prompts, agents
 
 
 def list_presets() -> list[tuple[str, str]]:
