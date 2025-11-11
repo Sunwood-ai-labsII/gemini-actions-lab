@@ -38,6 +38,8 @@
 | [pr-review-kozaki-remote.yml](./pr-review-kozaki-remote.yml) | PRレビュー（Kozaki） | build_reviewer_prompt.py |
 | [pr-review-yukimura-remote.yml](./pr-review-yukimura-remote.yml) | PRレビュー（Yukimura） | build_reviewer_prompt.py |
 | [pr-review-onizuka-remote.yml](./pr-review-onizuka-remote.yml) | PRレビュー（Onizuka） | build_reviewer_prompt.py |
+| [gemini-release-notes-remote.yml](./gemini-release-notes-remote.yml) | リリースノート自動生成 | clamp_diff.py |
+| [huggingface-space-deploy-remote.yml](./huggingface-space-deploy-remote.yml) | HuggingFaceデプロイ | ensure_hf_space.py |
 | [example-remote-script.yml](./example-remote-script.yml) | 動作確認用サンプル | 全スクリプト（選択可） |
 
 ## 🎓 学習パス

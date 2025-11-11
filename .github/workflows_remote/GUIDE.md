@@ -154,7 +154,66 @@ env:
   REMOTE_BRANCH: 'main'
 ```
 
-### 2. Example ワークフロー
+### 2. Release Notes ワークフロー
+
+**ファイル:** `gemini-release-notes-remote.yml`
+
+**使用スクリプト:** `clamp_diff.py`
+
+**トリガー:** タグのpush時に自動実行
+
+**必要な設定:**
+- Secrets: `GEMINI_API_KEY`
+- Variables: GCP連携を使う場合は各種GCP設定
+
+**使用例:**
+```bash
+# タグを作成してpushするだけ
+git tag v1.0.0
+git push origin v1.0.0
+
+# 自動的にリリースノートが生成されます！
+```
+
+**カスタマイズ:**
+```yaml
+env:
+  MAX_COMMITS: 300      # 最大コミット数
+  MAX_DIFF_LINES: 2000  # 最大差分行数
+  REMOTE_REPO: 'Sunwood-ai-labsII/gemini-actions-lab'
+  REMOTE_BRANCH: 'main'
+```
+
+### 3. HuggingFace Deploy ワークフロー
+
+**ファイル:** `huggingface-space-deploy-remote.yml`
+
+**使用スクリプト:** `ensure_hf_space.py`
+
+**トリガー:** workflow_dispatch（手動実行）
+
+**必要な設定:**
+- Secrets: `HUGGINGFACE_TOKEN`
+
+**使用例:**
+```bash
+# GitHub Actions UIから手動実行
+# 以下のパラメータを入力：
+# - space_slug: my-awesome-space
+# - space_sdk: gradio
+# - source_dir: .
+```
+
+**入力パラメータ:**
+- `space_slug`: Spaceのスラッグ名（必須）
+- `space_org`: 組織名（オプション）
+- `space_sdk`: SDK種類（gradio, streamlit, etc.）
+- `space_private`: プライベートかどうか
+- `space_hardware`: ハードウェアティア（オプション）
+- `source_dir`: デプロイするディレクトリ
+- `space_branch`: pushするブランチ
+
+### 4. Example ワークフロー
 
 **ファイル:** `example-remote-script.yml`
 

@@ -83,22 +83,26 @@ env:
 
 ## 📦 利用可能なワークフロー
 
-### PR Review ワークフロー
+### PR Review ワークフロー ✅
 - `pr-review-kozaki-remote.yml` - 🦊 狐崎煌羽によるレビュー
 - `pr-review-yukimura-remote.yml` - ⚡ 雪村煌星によるレビュー
 - `pr-review-onizuka-remote.yml` - 🔥 鬼塚炎龍によるレビュー
 
 使用スクリプト: `build_reviewer_prompt.py`
 
-### Release Notes ワークフロー
+### Release Notes ワークフロー ✅
 - `gemini-release-notes-remote.yml` - 📝 リリースノート自動生成
 
 使用スクリプト: `clamp_diff.py`
 
-### HuggingFace Deploy ワークフロー
+トリガー: タグのpush時に自動実行
+
+### HuggingFace Deploy ワークフロー ✅
 - `huggingface-space-deploy-remote.yml` - 🤗 HuggingFaceへの自動デプロイ
 
 使用スクリプト: `ensure_hf_space.py`
+
+トリガー: 手動実行（workflow_dispatch）
 
 ## 🎯 開発原則 (SOLID/KISS/YAGNI/DRY)
 
