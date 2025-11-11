@@ -150,7 +150,26 @@ def extract_github_directory(
             # 既存のロジック：.github 全体のコピー
             if member.startswith(f"{top_level_prefix}/.github/"):
                 relative_path = member[len(f"{top_level_prefix}/"):]
-                target_path = destination / relative_path
+
+                # --use-remote の場合の特別な処理
+                if use_remote:
+                    # workflows_remote 内のワークフローを workflows にコピー
+                    if relative_path.startswith(".github/workflows_remote/") and relative_path.endswith(".yml"):
+                        # workflows_remote/ を workflows/ に変換
+                        workflow_file = relative_path.split("/")[-1]
+                        relative_path = f".github/workflows/{workflow_file}"
+                        target_path = destination / relative_path
+                    # workflows_remote ディレクトリそのものはスキップ
+                    elif relative_path.startswith(".github/workflows_remote/"):
+                        continue
+                    # scripts ディレクトリはスキップ
+                    elif relative_path.startswith(".github/scripts/"):
+                        continue
+                    else:
+                        target_path = destination / relative_path
+                else:
+                    target_path = destination / relative_path
+
                 is_github_file = True
             else:
                 relative_repo_path = member[len(f"{top_level_prefix}/"):]
