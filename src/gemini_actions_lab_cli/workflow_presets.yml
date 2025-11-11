@@ -54,6 +54,9 @@ presets:
     use_remote: false
     prompts:
       - release-image.en.txt
+      - reviewer-kozaki.md
+      - reviewer-onizuka.md
+      - reviewer-yukimura.md
     agents:
       - gal-agent.agent.md
     workflows:
