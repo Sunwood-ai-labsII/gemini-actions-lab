@@ -94,6 +94,50 @@ uv run gal sync-workflows \
 - `.github` 内の既存ワークフローを守りたい場合はそのままで OK。テンプレートで更新したいときは `--overwrite-github` を足してね。
 - 既存の `index.html` を置き換えたい場合は `--overwrite-index` も指定してください。
 
+## 🎯 特定のワークフローだけコピーしたい（新機能！）
+
+`.github/workflows_remote` または `.github/workflows` から、指定したワークフローファイルだけを取得できます。全体を同期する必要がないときに便利だよ〜✨
+
+### ローカルにコピー
+```bash
+# workflows_remote から特定のワークフローをコピー 🎯
+uv run gal sync-workflows \
+  --workflow gemini-release-notes-remote.yml \
+  --use-remote \
+  --destination .
+
+# 通常の workflows から特定のワークフローをコピー
+uv run gal sync-workflows \
+  --workflow gemini-cli.yml \
+  --destination .
+```
+
+### リモートリポジトリに直接同期
+```bash
+# リモートリポジトリの .github/workflows に直接コピー
+uv run gal sync-workflows \
+  --workflow pr-review-kozaki-remote.yml \
+  --use-remote \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+```
+
+| オプション | 説明 |
+| --- | --- |
+| `--workflow` | コピーしたいワークフローファイル名（例: `gemini-release-notes-remote.yml`） |
+| `--use-remote` | `.github/workflows_remote` から優先的に取得。見つからない場合は `workflows` から自動フォールバック |
+
+**動作の詳細:**
+- `--workflow` を指定すると、そのファイルだけが `.github/workflows` にコピーされます
+- `--use-remote` フラグがあると、`.github/workflows_remote` を優先的に探します
+- `workflows_remote` に見つからない場合は、自動的に `.github/workflows` から取得します
+- `--overwrite-github` フラグで既存ファイルの上書きが可能です
+
+**使用例シナリオ:**
+1. **リモートワークフローを試したい**: `--use-remote` で `workflows_remote` から取得
+2. **標準ワークフローだけ欲しい**: `--workflow` だけ指定して通常の `workflows` から取得
+3. **既存ワークフローを更新したい**: `--overwrite-github` を追加して上書き
+
 ---
 
 ## 🧪 テストの実行

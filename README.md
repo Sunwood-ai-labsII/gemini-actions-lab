@@ -182,6 +182,35 @@ gal sync-workflows \
   --include-index
 ```
 
+### 🎯 特定のワークフローのコピー（新機能！）
+
+`.github/workflows_remote` にあるワークフローファイルを、指定したファイル名だけコピーできます。
+
+```bash
+# workflows_remote から特定のワークフローをコピー 🎯
+gal sync-workflows \
+  --workflow gemini-release-notes-remote.yml \
+  --use-remote \
+  --destination .
+
+# 通常の workflows から特定のワークフローをコピー
+gal sync-workflows \
+  --workflow gemini-cli.yml \
+  --destination .
+
+# リモートリポジトリに直接同期することも可能！
+gal sync-workflows \
+  --workflow pr-review-kozaki-remote.yml \
+  --use-remote \
+  --repo Sunwood-ai-labs/my-repo \
+  --overwrite-github
+```
+
+**オプション説明:**
+- `--workflow`: コピーしたいワークフローファイル名（例: `gemini-release-notes-remote.yml`）
+- `--use-remote`: `.github/workflows_remote` から優先的に取得（なければ `workflows` から自動フォールバック）
+- `--overwrite-github`: 既存ファイルを上書き
+
 > `uv run` を利用して開発用に実行する場合は、`uv run gal ...` と置き換えてください。
 
 オプションの詳細やその他のユースケースは `src/README.md` を参照してください。
