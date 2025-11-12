@@ -8,6 +8,12 @@ from .github_api import http_get, http_post
 from .parser import parse_labels_input, parse_assignees_input
 from .utils import build_body_with_footer
 from .store import recent_repos, remember_repo
+from .workflow_sync import (
+    list_available_presets,
+    sync_workflow_preset,
+    WorkflowSyncError,
+    load_workflow_presets,
+)
 from pathlib import Path
 
 
@@ -525,4 +531,180 @@ def setup_commands(bot: discord.Client):
             default_repo = config.ENV_SYNC_DEFAULT_REPO.strip()
             if default_repo and default_repo not in repos:
                 repos = [default_repo] + repos
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
+    @bot.tree.command(name="list_presets", description="利用可能なワークフロープリセットの一覧を表示します")
+    async def list_presets(interaction: discord.Interaction):
+        try:
+            presets = list_available_presets()
+            if not presets:
+                await interaction.response.send_message(
+                    "利用可能なプリセットがありません。gemini-actions-lab-cli がインストールされているか確認してください。",
+                    ephemeral=True
+                )
+                return
+
+            lines = ["**利用可能なワークフロープリセット一覧**\n"]
+            for name, description in presets:
+                lines.append(f"**`{name}`**: {description}")
+
+            await interaction.response.send_message("\n".join(lines), ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"エラーが発生しました: {e}", ephemeral=True)
+
+    @bot.tree.command(name="workflow_preset", description="プリセットからワークフローをリポジトリに同期します")
+    @app_commands.describe(
+        repo="同期先リポジトリ (owner/repo)",
+        preset="プリセット名（例: basic, standard, pr-review）",
+        template_repo="テンプレートリポジトリ (owner/repo)。デフォルト: Sunwood-ai-labsII/gemini-actions-lab",
+        dry_run="プレビューのみ実行し、実際には反映しません",
+        overwrite="既存のファイルを上書きします",
+    )
+    async def workflow_preset(
+        interaction: discord.Interaction,
+        repo: str,
+        preset: str,
+        template_repo: str = "Sunwood-ai-labsII/gemini-actions-lab",
+        dry_run: bool = False,
+        overwrite: bool = False,
+    ):
+        if not config.GITHUB_TOKEN:
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            return
+
+        await interaction.response.defer(thinking=True)
+
+        try:
+            result = sync_workflow_preset(
+                target_repo=repo,
+                preset_name=preset,
+                template_repo=template_repo,
+                token=config.GITHUB_TOKEN,
+                dry_run=dry_run,
+                overwrite=overwrite,
+            )
+
+            if dry_run:
+                lines = [
+                    "🔍 ドライラン結果",
+                    f"同期先: `{repo}`",
+                    f"プリセット: `{preset}`",
+                    f"テンプレート: `{template_repo}`",
+                    f"\n対象ファイル数: {len(result.skipped)}",
+                ]
+                if result.skipped:
+                    lines.append("\n対象ファイル一覧:")
+                    for file in result.skipped:
+                        lines.append(f"- {file}")
+                lines.append("\n✅ ドライランを完了しました（実際の変更はありません）")
+                await interaction.followup.send("\n".join(lines))
+                return
+
+            summary_lines = [
+                f"✅ ワークフロー同期が完了しました",
+                f"同期先: `{repo}`",
+                f"プリセット: `{preset}`",
+                f"",
+                f"✨ 書き込み: {result.success_count}",
+                f"⏭️ スキップ: {result.skipped_count}",
+                f"❌ 失敗: {result.failed_count}",
+            ]
+
+            if result.written:
+                summary_lines.append("\n書き込まれたファイル:")
+                for file in result.written:
+                    summary_lines.append(f"- {file}")
+
+            if result.skipped:
+                summary_lines.append("\nスキップされたファイル（既存）:")
+                for file in result.skipped:
+                    summary_lines.append(f"- {file}")
+
+            if result.failed:
+                summary_lines.append("\n失敗したファイル:")
+                for file, error in result.failed:
+                    summary_lines.append(f"- {file}: {error}")
+
+            remember_repo(repo)
+            await interaction.followup.send("\n".join(summary_lines))
+
+        except WorkflowSyncError as e:
+            await interaction.followup.send(f"❌ ワークフロー同期に失敗しました: {e}")
+        except Exception as e:
+            await interaction.followup.send(f"❌ 予期しないエラーが発生しました: {e}")
+
+    @workflow_preset.autocomplete("repo")
+    async def workflow_preset_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
+    @workflow_preset.autocomplete("preset")
+    async def workflow_preset_preset_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        try:
+            presets = list_available_presets()
+            q = (current or "").lower()
+            if q:
+                presets = [(name, desc) for name, desc in presets if q in name.lower()]
+            presets = presets[:25]
+            return [app_commands.Choice(name=f"{name} - {desc}", value=name) for name, desc in presets]
+        except Exception:
+            return []
+
+    @bot.tree.command(name="set_secret", description="GitHub Actions のシークレット変数を個別に設定します")
+    @app_commands.describe(
+        repo="同期先リポジトリ (owner/repo)",
+        key="シークレットのキー名（例: GEMINI_API_KEY）",
+        value="シークレットの値（暗号化されて送信されます）",
+    )
+    async def set_secret(
+        interaction: discord.Interaction,
+        repo: str,
+        key: str,
+        value: str,
+    ):
+        if not config.GITHUB_TOKEN:
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # Use the existing env_sync module to set a single secret
+            variables = {key: value}
+            result = sync_repository_variables(repo, variables, token=config.GITHUB_TOKEN, dry_run=False)
+
+            if result.failed_count == 0:
+                remember_repo(repo)
+                value_preview = value[:4] + ("..." if len(value) > 4 else "")
+                await interaction.followup.send(
+                    f"✅ シークレット変数を設定しました\n"
+                    f"リポジトリ: `{repo}`\n"
+                    f"キー: `{key}`\n"
+                    f"値: `{value_preview}`",
+                    ephemeral=True
+                )
+            else:
+                error_detail = result.failed[0] if result.failed else ("Unknown", 0, "Unknown error")
+                await interaction.followup.send(
+                    f"❌ シークレット変数の設定に失敗しました\n"
+                    f"リポジトリ: `{repo}`\n"
+                    f"キー: `{key}`\n"
+                    f"エラー: {error_detail[2]}",
+                    ephemeral=True
+                )
+        except Exception as e:
+            await interaction.followup.send(
+                f"❌ 予期しないエラーが発生しました: {e}",
+                ephemeral=True
+            )
+
+    @set_secret.autocomplete("repo")
+    async def set_secret_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
         return [app_commands.Choice(name=r, value=r) for r in repos]
