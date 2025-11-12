@@ -6,7 +6,7 @@
 
 本ボットは2通りの操作に対応しています:
 - テキストコマンド: `!issue ...`（既存方式）
-- スラッシュコマンド: `/issue`, `/issue_help`, `/tag_latest`, `/sync_env`（推奨）
+- スラッシュコマンド: `/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/workflow_preset`, `/set_secret`, `/list_presets`（推奨）
 
 補助機能:
 - 最近使った `owner/repo` を自動記憶し、`repo` 引数でオートコンプリート候補に表示します。
@@ -54,6 +54,23 @@ docker compose -f docker-compose.yaml logs -f
     - `dry_run`: `true` を指定するとプレビューのみ実行し、値の先頭4文字までを一覧表示
   - 実行時は専用スレッドに進捗と結果を投稿し、作成/更新/失敗したキーを一覧化します
   - 例: `/sync_env repo:owner/repo env_file:.env.sync dry_run:true`
+
+- `/list_presets`: 利用可能なワークフロープリセットの一覧を表示
+  - 引数: なし
+  - 例: `/list_presets` → `basic`, `standard`, `pr-review` などのプリセットと説明を表示
+
+- `/workflow_preset`: プリセットからワークフローをリポジトリに同期
+  - 引数: `repo`(owner/repo), `preset`(プリセット名), `template_repo`(任意), `dry_run`(任意), `overwrite`(任意)
+  - プリセット: `basic`, `standard`, `pr-review`, `gemini-cli`, `release`, `imagen` など
+  - テンプレートリポジトリ: デフォルトは `Sunwood-ai-labsII/gemini-actions-lab`
+  - 例: `/workflow_preset repo:owner/repo preset:basic` → 基本的なワークフローをリポジトリに追加
+  - 例: `/workflow_preset repo:owner/repo preset:standard dry_run:true` → プレビューのみ表示
+
+- `/set_secret`: GitHub Actions のシークレット変数を個別に設定
+  - 引数: `repo`(owner/repo), `key`(シークレットのキー名), `value`(シークレットの値)
+  - **セキュリティ**: 値は GitHub の公開鍵で暗号化されてから送信されます
+  - 例: `/set_secret repo:owner/repo key:GEMINI_API_KEY value:your-secret-value`
+  - 注意: このコマンドは ephemeral（非公開）で実行され、あなただけに結果が表示されます
 
 ヒント:
 - グローバルコマンドの反映には最大1時間かかることがあります。即時反映したい場合は環境変数 `DISCORD_GUILD_ID` を設定すると、そのギルドへスラッシュコマンドを即時同期します。
@@ -112,11 +129,13 @@ docker compose -f docker-compose.yaml logs -f
 - `bot.py`: 起動エントリ（Bot 初期化とコマンド登録）
 - `app/` パッケージ: 本体コードを集約
   - `app/bot_client.py`: Discord クライアント本体（`on_ready`/`on_message` など）
-  - `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`, `/sync_env`）
+  - `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/workflow_preset`, `/set_secret`, `/list_presets`）
   - `app/parser.py`: レガシー `!issue` と入力パース（ラベル/アサイン）
   - `app/github_api.py`: GitHub API ヘルパー
   - `app/config.py`: 環境変数の読み取りと設定
   - `app/env_sync.py`: `/sync_env` コマンド用の .env 読み込みと GitHub 変数同期ヘルパー
+  - `app/workflow_sync.py`: `/workflow_preset` コマンド用のワークフロープリセット同期ヘルパー
+  - `app/store.py`: リポジトリ履歴管理（最近使ったリポジトリの記録）
   - `app/utils.py`: 本文末尾のメタ情報付加などのユーティリティ
 
 ### 本文テンプレート（example/）
