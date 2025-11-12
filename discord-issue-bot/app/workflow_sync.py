@@ -12,6 +12,7 @@ from typing import Any
 
 from . import config
 from .github_api import http_get
+from urllib import request as urllib_request, error as urllib_error
 
 
 @dataclass
@@ -118,14 +119,24 @@ def download_template_repo(template_repo: str, token: str) -> bytes:
         WorkflowSyncError: If download fails.
     """
     url = f"{config.GITHUB_API}/repos/{template_repo}/zipball"
-    status, body = http_get(url, token)
-
-    if status != 200:
+    req = urllib_request.Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Accept", "application/vnd.github+json")
+    try:
+        with urllib_request.urlopen(req, timeout=60) as resp:
+            if resp.status != 200:
+                body = resp.read().decode("utf-8", errors="replace")
+                raise WorkflowSyncError(
+                    f"Failed to download template repository (status {resp.status}): {body[:500]}"
+                )
+            return resp.read()
+    except urllib_error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         raise WorkflowSyncError(
-            f"Failed to download template repository (status {status}): {body[:500] if body else 'No response'}"
-        )
-
-    return body.encode('latin-1') if isinstance(body, str) else body
+            f"Failed to download template repository (status {exc.code}): {body[:500]}"
+        ) from exc
+    except urllib_error.URLError as exc:
+        raise WorkflowSyncError(f"Failed to download template repository: {exc.reason}") from exc
 
 
 def extract_workflow_files(
@@ -191,7 +202,7 @@ def extract_workflow_files(
                 )
 
             with archive.open(found) as f:
-                content = f.read().decode('utf-8')
+                content = f.read().decode('utf-8', errors='replace')
                 extracted[f".github/workflows/{wf_file}"] = content
 
         # Extract prompt files
@@ -204,8 +215,8 @@ def extract_workflow_files(
                     )
 
                 with archive.open(prompt_path) as f:
-                    content = f.read().decode('utf-8')
-                    extracted[f".github/prompts/{prompt_file}"] = content
+                    content = f.read().decode('utf-8', errors='replace')
+                extracted[f".github/prompts/{prompt_file}"] = content
 
         # Extract agent files
         if agent_files:
@@ -217,8 +228,8 @@ def extract_workflow_files(
                     )
 
                 with archive.open(agent_path) as f:
-                    content = f.read().decode('utf-8')
-                    extracted[f".github/agents/{agent_file}"] = content
+                    content = f.read().decode('utf-8', errors='replace')
+                extracted[f".github/agents/{agent_file}"] = content
 
     return extracted
 

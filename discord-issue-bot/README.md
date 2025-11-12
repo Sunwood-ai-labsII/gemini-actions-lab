@@ -5,7 +5,7 @@
 シンプルな Discord ボットです。Discord のチャットから直接 GitHub Issue を作成します（ワークフロー不要）。
 
 本ボットはスラッシュコマンドで操作します:
-- `/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/workflow_preset`, `/set_secret`, `/list_presets`
+- `/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/repo_setup`, `/workflow_preset`, `/list_presets`
 
 補助機能:
 - 最近使った `owner/repo` を自動記憶し、`repo` 引数でオートコンプリート候補に表示します。
@@ -65,11 +65,11 @@ docker compose -f docker-compose.yaml logs -f
   - 例: `/workflow_preset repo:owner/repo preset:basic` → 基本的なワークフローをリポジトリに追加
   - 例: `/workflow_preset repo:owner/repo preset:standard dry_run:true` → プレビューのみ表示
 
-- `/set_secret`: GitHub Actions のシークレット変数を個別に設定
-  - 引数: `repo`(owner/repo), `key`(シークレットのキー名), `value`(シークレットの値)
-  - **セキュリティ**: 値は GitHub の公開鍵で暗号化されてから送信されます
-  - 例: `/set_secret repo:owner/repo key:GEMINI_API_KEY value:your-secret-value`
-  - 注意: このコマンドは ephemeral（非公開）で実行され、あなただけに結果が表示されます
+- `/repo_setup`: ワークフローの同期と `.env` シークレット同期をまとめて実行
+  - 引数: `repo`(owner/repo), `preset`(プリセット名), `env_file`(任意), `template_repo`(任意), `include_keys`/`exclude_keys`(任意), `dry_run`(任意), `overwrite`(任意)
+  - フロー: ① `sync_workflow_preset` で指定プリセットをコピー → ② `sync_env` ロジックで `.env` を GitHub Secrets に同期
+  - `dry_run:true` で両処理ともプレビューのみ実行し、安全確認してから本番実行できるよ
+  - 例: `/repo_setup repo:owner/repo preset:basic env_file:.env.actions dry_run:true`
 
 ヒント:
 - グローバルコマンドの反映には最大1時間かかることがあります。即時反映したい場合は環境変数 `DISCORD_GUILD_ID` を設定すると、そのギルドへスラッシュコマンドを即時同期します。
@@ -80,7 +80,7 @@ docker compose -f docker-compose.yaml logs -f
 - `bot.py`: 起動エントリ（Bot 初期化とコマンド登録）
 - `app/` パッケージ: 本体コードを集約
   - `app/bot_client.py`: Discord クライアント本体（`on_ready`/`on_message` など）
-  - `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/workflow_preset`, `/set_secret`, `/list_presets`）
+- `app/commands.py`: スラッシュコマンド定義（`/issue`, `/issue_help`, `/tag_latest`, `/sync_env`, `/repo_setup`, `/workflow_preset`, `/list_presets`）
   - `app/parser.py`: レガシー `!issue` と入力パース（ラベル/アサイン）
   - `app/github_api.py`: GitHub API ヘルパー
   - `app/config.py`: 環境変数の読み取りと設定
