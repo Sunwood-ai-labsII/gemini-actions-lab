@@ -55,15 +55,11 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.release_version }}
         run: |
-          set -euo pipefail
-          if ! grep -q '^version = "' pyproject.toml; then
-            echo 'version field not found in pyproject.toml' >&2
+          if [[ -z "${RELEASE_VERSION}" ]]; then
+            echo "RELEASE_VERSION environment variable is required" >&2
             exit 1
           fi
-          tmp_file=$(mktemp)
-          grep -vx 'version = ".*"' pyproject.toml > "${tmp_file}"
-          sed -i "0,/^\[project\]$/a version = \"${RELEASE_VERSION}\"" "${tmp_file}"
-          mv "${tmp_file}" pyproject.toml
+          python3 .github/scripts/update_version.py "${RELEASE_VERSION}"
 
       - name: Set up Python
         uses: actions/setup-python@v5

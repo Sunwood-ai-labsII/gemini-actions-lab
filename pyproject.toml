@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gemini-actions-lab-cli"
-version = "0.7.1"
+version = "0.10.3"
 description = "Command line helpers for Gemini Actions Lab repositories"
 readme = "README.md"
 authors = [
@@ -34,6 +34,3 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-"gemini_actions_lab_cli" = ["*.yml"]

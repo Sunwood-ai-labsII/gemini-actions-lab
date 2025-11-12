@@ -1,0 +1,15 @@
+.git
+.vscode
+.SourceSageAssets
+__pycache__
+*.pyc
+.venv
+discord-issue-bot/.venv
+generated-images
+docs
+tests
+.env
+.env.*
+node_modules
+dist
+build

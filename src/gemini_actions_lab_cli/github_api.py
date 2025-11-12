@@ -11,7 +11,7 @@ import requests
 from nacl import encoding, public
 
 API_URL = "https://api.github.com"
-USER_AGENT = "gemini-actions-lab-cli/0.1.0"
+USER_AGENT = "gemini-actions-lab-cli/0.10.3"
 
 
 class GitHubError(RuntimeError):

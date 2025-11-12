@@ -10,4 +10,4 @@ __all__ = [
     "sync_secrets_from_env_file",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.10.3"

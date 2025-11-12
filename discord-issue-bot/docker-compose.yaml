@@ -1,10 +1,12 @@
 services:
   bot:
-    build: .
+    build:
+      context: ..
+      dockerfile: discord-issue-bot/Dockerfile
     env_file:
       - .env
     volumes:
-      - .:/app
+      - .:/workspace/discord-issue-bot
       - ./data:/data
     environment:
       - DISCORD_BOT_TOKEN
