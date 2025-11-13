@@ -19,6 +19,11 @@ from .workflow_sync import (
     WorkflowSyncError,
     load_workflow_presets,
 )
+from .branch_sync import (
+    sync_branches,
+    BranchSyncError,
+    BranchSyncResult,
+)
 from pathlib import Path
 
 
@@ -185,6 +190,48 @@ def _format_workflow_summary_text(result: "WorkflowSyncResult", repo: str, prese
         lines.append("\n失敗したファイル:")
         for file, error in result.failed:
             lines.append(f"- {file}: {error}")
+    return "\n".join(lines)
+
+
+def _format_branch_dry_run_text(result: BranchSyncResult, repo: str, branches: list[str]) -> str:
+    lines = [
+        "🔍 ドライラン結果",
+        f"同期先: `{repo}`",
+        f"対象ブランチ数: {len(branches)}",
+    ]
+    if result.created:
+        lines.append("\n作成予定のブランチ:")
+        for branch in result.created:
+            lines.append(f"- {branch}")
+    if result.skipped:
+        lines.append("\nスキップ（既存）:")
+        for branch in result.skipped:
+            lines.append(f"- {branch}")
+    lines.append("\n✅ ドライランを完了しました（実際の変更はありません）")
+    return "\n".join(lines)
+
+
+def _format_branch_summary_text(result: BranchSyncResult, repo: str) -> str:
+    lines = [
+        "✅ ブランチ同期が完了しました",
+        f"同期先: `{repo}`",
+        "",
+        f"✨ 作成: {result.created_count}",
+        f"⏭️ スキップ: {result.skipped_count}",
+        f"❌ 失敗: {result.failed_count}",
+    ]
+    if result.created:
+        lines.append("\n作成されたブランチ:")
+        for branch in result.created:
+            lines.append(f"- {branch}")
+    if result.skipped:
+        lines.append("\nスキップされたブランチ（既存）:")
+        for branch in result.skipped:
+            lines.append(f"- {branch}")
+    if result.failed:
+        lines.append("\n失敗したブランチ:")
+        for branch, error in result.failed:
+            lines.append(f"- {branch}: {error}")
     return "\n".join(lines)
 
 
@@ -738,7 +785,57 @@ def setup_commands(bot: discord.Client):
         except Exception:
             return []
 
-    @bot.tree.command(name="repo_setup", description="ワークフローと .env 同期をまとめて実行します")
+    @bot.tree.command(name="create_branches", description="main と develop ブランチを作成します")
+    @app_commands.describe(
+        repo="対象リポジトリ (owner/repo)",
+        base_branch="ベースブランチ（省略時はデフォルトブランチ）",
+        dry_run="プレビューのみ実行し、GitHub へは反映しません",
+    )
+    async def create_branches(
+        interaction: discord.Interaction,
+        repo: str,
+        base_branch: str | None = None,
+        dry_run: bool = False,
+    ):
+        if not config.GITHUB_TOKEN:
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            return
+
+        await interaction.response.defer(thinking=True)
+
+        branches_to_create = ["main", "develop"]
+
+        try:
+            result = sync_branches(
+                repo=repo,
+                branches=branches_to_create,
+                token=config.GITHUB_TOKEN,
+                base_branch=base_branch,
+                dry_run=dry_run,
+            )
+
+            if dry_run:
+                await interaction.followup.send(
+                    _format_branch_dry_run_text(result, repo, branches_to_create)
+                )
+                return
+
+            remember_repo(repo)
+            await interaction.followup.send(_format_branch_summary_text(result, repo))
+
+        except BranchSyncError as e:
+            await interaction.followup.send(f"❌ ブランチ作成に失敗しました: {e}")
+        except Exception as e:
+            await interaction.followup.send(f"❌ 予期しないエラーが発生しました: {e}")
+
+    @create_branches.autocomplete("repo")
+    async def create_branches_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
+    @bot.tree.command(name="repo_setup", description="ワークフロー、.env 同期、ブランチ作成をまとめて実行します")
     @app_commands.describe(
         repo="同期先リポジトリ (owner/repo)",
         preset="プリセット名（例: basic, standard, pr-review）",
@@ -748,6 +845,7 @@ def setup_commands(bot: discord.Client):
         exclude_keys="同期から除外するキー名（任意）",
         dry_run="プレビューのみ実行し、GitHub へは反映しません",
         overwrite="既存のワークフローファイルを上書きします",
+        create_branches="main と develop ブランチを作成します",
     )
     async def repo_setup(
         interaction: discord.Interaction,
@@ -759,6 +857,7 @@ def setup_commands(bot: discord.Client):
         exclude_keys: str = "",
         dry_run: bool = False,
         overwrite: bool = False,
+        create_branches: bool = True,
     ):
         if not config.GITHUB_TOKEN:
             await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
@@ -838,6 +937,21 @@ def setup_commands(bot: discord.Client):
             env_text = _format_env_dry_run_text(repo, env_path, filtered)
             await log_target.send("**workflow_preset (dry-run)**\n" + workflow_text)
             await log_target.send("**sync_env (dry-run)**\n" + env_text)
+
+            if create_branches:
+                try:
+                    branches_to_create = ["main", "develop"]
+                    branch_result = sync_branches(
+                        repo=repo,
+                        branches=branches_to_create,
+                        token=config.GITHUB_TOKEN,
+                        dry_run=True,
+                    )
+                    branch_text = _format_branch_dry_run_text(branch_result, repo, branches_to_create)
+                    await log_target.send("**create_branches (dry-run)**\n" + branch_text)
+                except BranchSyncError as e:
+                    await log_target.send(f"⚠️ ブランチプレビュー中にエラーが発生しました: {e}")
+
             await conclude("✅ repo_setup (dry-run) を完了しました。スレッドをクローズします。")
             return
 
@@ -849,12 +963,41 @@ def setup_commands(bot: discord.Client):
 
         env_result = sync_repository_variables(repo, filtered, token=config.GITHUB_TOKEN, dry_run=False)
 
+        # Branch creation
+        branch_result = None
+        if create_branches:
+            await log_target.send(
+                "🌿 ブランチ作成を開始します\n"
+                "• 対象ブランチ: main, develop"
+            )
+            try:
+                branches_to_create = ["main", "develop"]
+                branch_result = sync_branches(
+                    repo=repo,
+                    branches=branches_to_create,
+                    token=config.GITHUB_TOKEN,
+                    dry_run=False,
+                )
+            except BranchSyncError as e:
+                await log_target.send(f"⚠️ ブランチ作成中にエラーが発生しました: {e}")
+                branch_result = BranchSyncResult(created=[], skipped=[], failed=[("branch_sync", str(e))])
+            except Exception as e:
+                await log_target.send(f"⚠️ 予期しないエラーが発生しました: {e}")
+                branch_result = BranchSyncResult(created=[], skipped=[], failed=[("branch_sync", str(e))])
+
         await log_target.send("**workflow_preset**\n" + _format_workflow_summary_text(workflow_result, repo, preset))
         await log_target.send("**sync_env**")
         for block in _format_env_result_blocks(repo, env_path, filtered, env_result):
             await log_target.send(block)
 
-        success = env_result.failed_count == 0 and workflow_result.failed_count == 0
+        if branch_result:
+            await log_target.send("**create_branches**\n" + _format_branch_summary_text(branch_result, repo))
+
+        success = (
+            env_result.failed_count == 0
+            and workflow_result.failed_count == 0
+            and (branch_result is None or branch_result.failed_count == 0)
+        )
         if success:
             remember_repo(repo)
 
