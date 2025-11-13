@@ -24,6 +24,12 @@ from .branch_sync import (
     BranchSyncError,
     BranchSyncResult,
 )
+from .doc_sync import (
+    sync_docs as sync_docs_func,
+    DocSyncError,
+    DocSyncResult,
+    DEFAULT_DOC_FILES,
+)
 from pathlib import Path
 
 
@@ -232,6 +238,45 @@ def _format_branch_summary_text(result: BranchSyncResult, repo: str) -> str:
         lines.append("\n失敗したブランチ:")
         for branch, error in result.failed:
             lines.append(f"- {branch}: {error}")
+    return "\n".join(lines)
+
+
+def _format_doc_dry_run_text(result: DocSyncResult, repo: str, template_repo: str, doc_files: list[str]) -> str:
+    lines = [
+        "🔍 ドライラン結果",
+        f"同期先: `{repo}`",
+        f"テンプレート: `{template_repo}`",
+        f"対象ファイル数: {len(doc_files)}",
+    ]
+    if result.skipped:
+        lines.append("\n対象ファイル一覧:")
+        for file in result.skipped:
+            lines.append(f"- {file}")
+    lines.append("\n✅ ドライランを完了しました（実際の変更はありません）")
+    return "\n".join(lines)
+
+
+def _format_doc_summary_text(result: DocSyncResult, repo: str) -> str:
+    lines = [
+        "✅ ドキュメント同期が完了しました",
+        f"同期先: `{repo}`",
+        "",
+        f"✨ 書き込み: {result.success_count}",
+        f"⏭️ スキップ: {result.skipped_count}",
+        f"❌ 失敗: {result.failed_count}",
+    ]
+    if result.written:
+        lines.append("\n書き込まれたファイル:")
+        for file in result.written:
+            lines.append(f"- {file}")
+    if result.skipped:
+        lines.append("\nスキップされたファイル（既存）:")
+        for file in result.skipped:
+            lines.append(f"- {file}")
+    if result.failed:
+        lines.append("\n失敗したファイル:")
+        for file, error in result.failed:
+            lines.append(f"- {file}: {error}")
     return "\n".join(lines)
 
 
@@ -835,7 +880,60 @@ def setup_commands(bot: discord.Client):
         repos = recent_repos(current, limit=25)
         return [app_commands.Choice(name=r, value=r) for r in repos]
 
-    @bot.tree.command(name="repo_setup", description="ワークフロー、.env 同期、ブランチ作成をまとめて実行します")
+    @bot.tree.command(name="sync_docs", description="ドキュメントファイル（AGENTS.md, Claude.md, GEMINI.md）を同期します")
+    @app_commands.describe(
+        repo="対象リポジトリ (owner/repo)",
+        template_repo="テンプレートリポジトリ (owner/repo)。デフォルト: Sunwood-ai-labsII/gemini-actions-lab",
+        dry_run="プレビューのみ実行し、GitHub へは反映しません",
+        overwrite="既存のファイルを上書きします",
+    )
+    async def sync_docs_command(
+        interaction: discord.Interaction,
+        repo: str,
+        template_repo: str = DEFAULT_TEMPLATE_REPO,
+        dry_run: bool = False,
+        overwrite: bool = False,
+    ):
+        if not config.GITHUB_TOKEN:
+            await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
+            return
+
+        await interaction.response.defer(thinking=True)
+
+        doc_files = DEFAULT_DOC_FILES
+
+        try:
+            result = sync_docs_func(
+                target_repo=repo,
+                template_repo=template_repo,
+                token=config.GITHUB_TOKEN,
+                doc_files=doc_files,
+                dry_run=dry_run,
+                overwrite=overwrite,
+            )
+
+            if dry_run:
+                await interaction.followup.send(
+                    _format_doc_dry_run_text(result, repo, template_repo, doc_files)
+                )
+                return
+
+            remember_repo(repo)
+            await interaction.followup.send(_format_doc_summary_text(result, repo))
+
+        except DocSyncError as e:
+            await interaction.followup.send(f"❌ ドキュメント同期に失敗しました: {e}")
+        except Exception as e:
+            await interaction.followup.send(f"❌ 予期しないエラーが発生しました: {e}")
+
+    @sync_docs_command.autocomplete("repo")
+    async def sync_docs_repo_autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        repos = recent_repos(current, limit=25)
+        return [app_commands.Choice(name=r, value=r) for r in repos]
+
+    @bot.tree.command(name="repo_setup", description="ワークフロー、.env 同期、ブランチ作成、ドキュメント同期をまとめて実行します")
     @app_commands.describe(
         repo="同期先リポジトリ (owner/repo)",
         preset="プリセット名（例: basic, standard, pr-review）",
@@ -846,6 +944,7 @@ def setup_commands(bot: discord.Client):
         dry_run="プレビューのみ実行し、GitHub へは反映しません",
         overwrite="既存のワークフローファイルを上書きします",
         create_branches="main と develop ブランチを作成します",
+        sync_docs="ドキュメントファイル（AGENTS.md, Claude.md, GEMINI.md）を同期します",
     )
     async def repo_setup(
         interaction: discord.Interaction,
@@ -858,6 +957,7 @@ def setup_commands(bot: discord.Client):
         dry_run: bool = False,
         overwrite: bool = False,
         create_branches: bool = True,
+        sync_docs: bool = True,
     ):
         if not config.GITHUB_TOKEN:
             await interaction.response.send_message("GITHUB_TOKEN が未設定です", ephemeral=True)
@@ -952,6 +1052,22 @@ def setup_commands(bot: discord.Client):
                 except BranchSyncError as e:
                     await log_target.send(f"⚠️ ブランチプレビュー中にエラーが発生しました: {e}")
 
+            if sync_docs:
+                try:
+                    doc_files = DEFAULT_DOC_FILES
+                    doc_result = sync_docs_func(
+                        target_repo=repo,
+                        template_repo=template_repo,
+                        token=config.GITHUB_TOKEN,
+                        doc_files=doc_files,
+                        dry_run=True,
+                        overwrite=overwrite,
+                    )
+                    doc_text = _format_doc_dry_run_text(doc_result, repo, template_repo, doc_files)
+                    await log_target.send("**sync_docs (dry-run)**\n" + doc_text)
+                except DocSyncError as e:
+                    await log_target.send(f"⚠️ ドキュメントプレビュー中にエラーが発生しました: {e}")
+
             await conclude("✅ repo_setup (dry-run) を完了しました。スレッドをクローズします。")
             return
 
@@ -985,6 +1101,29 @@ def setup_commands(bot: discord.Client):
                 await log_target.send(f"⚠️ 予期しないエラーが発生しました: {e}")
                 branch_result = BranchSyncResult(created=[], skipped=[], failed=[("branch_sync", str(e))])
 
+        # Documentation synchronization
+        doc_result = None
+        if sync_docs:
+            await log_target.send(
+                "📄 ドキュメント同期を開始します\n"
+                f"• 対象ファイル: {', '.join(DEFAULT_DOC_FILES)}"
+            )
+            try:
+                doc_result = sync_docs_func(
+                    target_repo=repo,
+                    template_repo=template_repo,
+                    token=config.GITHUB_TOKEN,
+                    doc_files=DEFAULT_DOC_FILES,
+                    dry_run=False,
+                    overwrite=overwrite,
+                )
+            except DocSyncError as e:
+                await log_target.send(f"⚠️ ドキュメント同期中にエラーが発生しました: {e}")
+                doc_result = DocSyncResult(written=[], skipped=[], failed=[("doc_sync", str(e))])
+            except Exception as e:
+                await log_target.send(f"⚠️ 予期しないエラーが発生しました: {e}")
+                doc_result = DocSyncResult(written=[], skipped=[], failed=[("doc_sync", str(e))])
+
         await log_target.send("**workflow_preset**\n" + _format_workflow_summary_text(workflow_result, repo, preset))
         await log_target.send("**sync_env**")
         for block in _format_env_result_blocks(repo, env_path, filtered, env_result):
@@ -993,10 +1132,14 @@ def setup_commands(bot: discord.Client):
         if branch_result:
             await log_target.send("**create_branches**\n" + _format_branch_summary_text(branch_result, repo))
 
+        if doc_result:
+            await log_target.send("**sync_docs**\n" + _format_doc_summary_text(doc_result, repo))
+
         success = (
             env_result.failed_count == 0
             and workflow_result.failed_count == 0
             and (branch_result is None or branch_result.failed_count == 0)
+            and (doc_result is None or doc_result.failed_count == 0)
         )
         if success:
             remember_repo(repo)
